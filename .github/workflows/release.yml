@@ -31,6 +31,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Archive build artifacts
+        run: tar -czf dist.tar.gz dist
+
+      - name: Verify archive contents
+        run: tar -tzf dist.tar.gz
+
       - name: Publish to npm
         run: npm publish --access public
         env:
@@ -41,5 +47,5 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            dist/**/*
+            dist.tar.gz
           fail_on_unmatched_files: true
