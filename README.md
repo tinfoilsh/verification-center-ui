@@ -48,12 +48,14 @@ Otherwise, you can provide `verificationDocument` when the Tinfoil client is ini
 - `isDarkMode?: boolean` – toggles the dark theme (defaults to `true`).
 - `showVerificationFlow?: boolean` – hides the network diagram when `false` (defaults to `true`).
 - `verificationDocument?: VerificationDocument` – supply a precomputed verification document to skip running the verifier in the browser.
+- `configRepo?: string` – override the GitHub repo the verifier pulls measurement configs from (defaults to `tinfoilsh/confidential-inference-proxy`).
+- `baseUrl?: string` – override the enclave host/base URL that the verifier attests against (defaults to `https://inference.tinfoil.sh`).
 
 ### Layout wrappers
 
 The package ships with both a sidebar drawer and a centered modal built around `VerificationCenter`:
 
-- `VerifierSidebar` slides in from the right edge of the screen. It requires `isOpen`/`setIsOpen` state, plus the same optional props you pass to `VerificationCenter` (`isDarkMode`, `showVerificationFlow`, `verificationDocument`).
+- `VerifierSidebar` slides in from the right edge of the screen. It requires `isOpen`/`setIsOpen` state, plus the same optional props you pass to `VerificationCenter` (`isDarkMode`, `showVerificationFlow`, `verificationDocument`, `configRepo`, `baseUrl`).
 - `VerifierModal` renders the content inside a Headless UI `Dialog`. Provide `isOpen`/`setIsOpen`, and optionally forward the verification props.
 
 ```tsx
