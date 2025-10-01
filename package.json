@@ -1,0 +1,61 @@
+{
+  "name": "@tinfoilsh/verification-center-ui",
+  "version": "0.0.1",
+  "description": "React components for the Tinfoil verification center UI",
+  "main": "dist/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "browser": "./dist/esm/index.js",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "npm run build:css && npm run build:cjs && npm run build:esm",
+    "build:cjs": "tsc && rsync -a --include='*/' --include='*.css' --include='*.svg' --exclude='*' src/ dist/ || true",
+    "build:esm": "tsc -p tsconfig.esm.json && rsync -a --include='*/' --include='*.css' --include='*.svg' --exclude='*' src/ dist/esm/ || true",
+    "build:css": "tailwindcss -c tailwind.config.js -i src/tailwind.css -o src/verification-center.css --minify",
+    "prepublishOnly": "npm run build",
+    "dev": "vite --config examples/dev/vite.config.mts"
+  },
+  "peerDependencies": {
+    "@headlessui/react": "^2.1.7",
+    "@xyflow/react": "*",
+    "framer-motion": "*",
+    "react": "^18 || ^19",
+    "react-dom": "^18 || ^19",
+    "react-icons": "*",
+    "tinfoil": ">=0.8.1"
+  },
+  "devDependencies": {
+    "@headlessui/react": "^2.1.7",
+    "@tailwindcss/container-queries": "^0.1.1",
+    "@tailwindcss/typography": "^0.5.16",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "tailwindcss-animate": "^1.0.7",
+    "tinfoil": "0.8.1",
+    "typescript": "^5.9.2",
+    "vite": "^5.4.9"
+  },
+  "license": "AGPL-3.0-or-later"
+}
