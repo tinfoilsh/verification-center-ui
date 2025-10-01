@@ -1,9 +1,7 @@
 import { LuTriangleAlert } from 'react-icons/lu'
 
 // Vendor marks for attestation providers displayed on success
-import amdIcon from './assets/amd.svg'
-import intelIcon from './assets/intel.svg'
-import nvidiaIcon from './assets/nvidia.svg'
+import { amdIcon, intelIcon, nvidiaIcon } from './assets/base64'
 
 type VerificationState = {
   [key: string]: {

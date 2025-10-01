@@ -1,6 +1,5 @@
 import { LuX } from 'react-icons/lu'
-import logoGreen from './assets/logo-green.svg'
-import logoWhite from './assets/logo-white.svg'
+import { logoGreenIcon, logoWhiteIcon } from './assets/base64'
 
 type VerifierHeaderProps = {
   isDarkMode?: boolean
@@ -30,7 +29,7 @@ export function VerifierHeader({
     >
       <div className="flex items-center">
         <img
-          src={isDarkMode ? logoWhite : logoGreen}
+          src={isDarkMode ? logoWhiteIcon : logoGreenIcon}
           alt="Tinfoil"
           width={70}
           height={30}
