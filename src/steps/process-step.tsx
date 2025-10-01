@@ -6,14 +6,16 @@ import { StatusIcon } from './status-icon'
 
 // Brand assets used in the step details
 import type { VerificationDocument } from 'tinfoil'
-import amdIcon from '../assets/amd.svg'
-import cpuIcon from '../assets/cpu.svg'
-import githubIcon from '../assets/github.svg'
-import gpuIcon from '../assets/gpu.svg'
-import intelIcon from '../assets/intel.svg'
-import nvidiaIcon from '../assets/nvidia.svg'
-import sigstoreLightIcon from '../assets/sigstore-light.svg'
-import sigstoreIcon from '../assets/sigstore.svg'
+import {
+  amdIcon,
+  cpuIcon,
+  githubIcon,
+  gpuIcon,
+  intelIcon,
+  nvidiaIcon,
+  sigstoreIcon,
+  sigstoreLightIcon,
+} from '../assets/base64'
 
 type DigestType = 'SOURCE' | 'RUNTIME' | 'CODE_INTEGRITY' | 'GENERIC'
 
