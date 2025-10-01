@@ -1,6 +1,6 @@
 # Tinfoil Verification Center UI
 
-React components that render the Tinfoil verification center experience. Pair it with the `tinfoil` SDK to embed trust signals for confidential inference directly inside your product UI.
+React components that render the Tinfoil verification center for displaying security information related to the Tinfoil secure hardware enclave verification. Use it with the `tinfoil` SDK to display a verification UI on your react web page.
 
 ## Installation
 
@@ -38,7 +38,8 @@ export function VerificationPage({
 }
 ```
 
-When no `verificationDocument` prop is supplied the component will call `loadVerifier()` from the `tinfoil` package when the client is initialized successfully. 
+When no `verificationDocument` prop is supplied the component will call `loadVerifier()` from the `tinfoil` package.
+Otherwise, you can provide `verificationDocument` when the Tinfoil client is initialized successfully in your application. 
 
 ### Props
 
@@ -50,7 +51,7 @@ When no `verificationDocument` prop is supplied the component will call `loadVer
 
 ### Layout wrappers
 
-If you want an opinionated container, the package ships with both a sidebar drawer and a centered modal built around `VerificationCenter`:
+The package ships with both a sidebar drawer and a centered modal built around `VerificationCenter`:
 
 - `VerifierSidebar` slides in from the right edge of the screen. It requires `isOpen`/`setIsOpen` state, plus the same optional props you pass to `VerificationCenter` (`isDarkMode`, `showVerificationFlow`, `verificationDocument`).
 - `VerifierModal` renders the content inside a Headless UI `Dialog`. Provide `isOpen`/`setIsOpen`, and optionally forward the verification props.
@@ -84,9 +85,6 @@ export function VerificationEntryPoints({ document }: { document?: VerificationD
         setIsOpen={setModalOpen}
         verificationDocument={document}
       />
-
-      {/* You can also mount the bare component inline */}
-      <VerificationCenter verificationDocument={document} />
     </>
   )
 }
