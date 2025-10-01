@@ -11,6 +11,10 @@ type VerifierModalProps = {
   showVerificationFlow?: boolean
   /** Optional precomputed verification document from client */
   verificationDocument?: import('tinfoil').VerificationDocument
+  /** Override the GitHub config repository used during verification */
+  configRepo?: string
+  /** Override the enclave base URL/host used during verification */
+  baseUrl?: string
 }
 
 /**
@@ -25,6 +29,8 @@ export function VerifierModal({
   isDarkMode = true,
   showVerificationFlow = true,
   verificationDocument,
+  configRepo,
+  baseUrl,
 }: VerifierModalProps) {
   const [isClient, setIsClient] = useState(false)
 
@@ -76,6 +82,8 @@ export function VerifierModal({
                       isDarkMode={isDarkMode}
                       showVerificationFlow={showVerificationFlow}
                       verificationDocument={verificationDocument}
+                      configRepo={configRepo}
+                      baseUrl={baseUrl}
                     />
                   )}
                 </div>

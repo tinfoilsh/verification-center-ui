@@ -13,6 +13,10 @@ type VerifierSidebarProps = {
   showVerificationFlow?: boolean
   /** Optional precomputed verification document from client */
   verificationDocument?: import('tinfoil').VerificationDocument
+  /** Override the GitHub config repository used during verification */
+  configRepo?: string
+  /** Override the enclave base URL/host used during verification */
+  baseUrl?: string
 }
 
 export function VerifierSidebar({
@@ -22,6 +26,8 @@ export function VerifierSidebar({
   width = CONSTANTS.VERIFIER_SIDEBAR_WIDTH_PX,
   showVerificationFlow = true,
   verificationDocument,
+  configRepo,
+  baseUrl,
 }: VerifierSidebarProps) {
   const verifierKey = useRef<number>(0)
   const [triggerVerify, setTriggerVerify] = useState(0)
@@ -60,6 +66,8 @@ export function VerifierSidebar({
               isDarkMode={isDarkMode}
               showVerificationFlow={showVerificationFlow}
               verificationDocument={verificationDocument}
+              configRepo={configRepo}
+              baseUrl={baseUrl}
             />
           )}
         </div>

@@ -6,6 +6,7 @@ import { LuExternalLink, LuRefreshCcwDot } from 'react-icons/lu'
 import {
   clearVerificationCache,
   loadVerifier,
+  type RunVerificationOptions,
   type VerificationState as RunnerState,
   type VerificationDocument,
 } from 'tinfoil'
@@ -52,6 +53,10 @@ export type VerificationCenterProps = {
   showVerificationFlow?: boolean
   /** Optional precomputed verification document from client */
   verificationDocument?: VerificationDocument
+  /** Override the GitHub config repository used during verification */
+  configRepo?: string
+  /** Override the enclave base URL/host used during verification */
+  baseUrl?: string
 }
 
 type VerificationStatus = 'error' | 'pending' | 'loading' | 'success'
@@ -164,6 +169,8 @@ export function VerificationCenter({
   isDarkMode = true,
   showVerificationFlow = true,
   verificationDocument,
+  configRepo,
+  baseUrl,
 }: VerificationCenterProps) {
   // Optimistic verifying flag to avoid UI flicker before first runner update
   // Initialized to true because we auto-start verification on mount
@@ -189,6 +196,19 @@ export function VerificationCenter({
       },
     },
   )
+
+  const resolvedServerHost = useMemo(() => {
+    if (!baseUrl) {
+      return undefined
+    }
+
+    try {
+      const parsedUrl = new URL(baseUrl)
+      return parsedUrl.host || parsedUrl.hostname
+    } catch {
+      return baseUrl
+    }
+  }, [baseUrl])
 
   // Derived status for the flow diagram; avoid duplicate state by deriving from verificationState
   // Kept as memoized values for clarity and to prevent re-computation on unrelated renders
@@ -241,33 +261,46 @@ export function VerificationCenter({
     const v = await loadVerifier()
     let hasReceivedUpdate = false
 
+    const makeOptions = (
+      onUpdate: RunVerificationOptions['onUpdate'],
+    ): RunVerificationOptions => {
+      const options: RunVerificationOptions = { onUpdate }
+      if (configRepo) {
+        options.configRepo = configRepo
+      }
+      if (resolvedServerHost) {
+        options.serverURL = resolvedServerHost
+      }
+      return options
+    }
+
     try {
-      await v.runVerification({
-        onUpdate: (s: RunnerState) => {
+      await v.runVerification(
+        makeOptions((s: RunnerState) => {
           hasReceivedUpdate = true
           setDigest(s.releaseDigest || null)
           const uiState = mapRunnerStateToUiState(s)
           setVerificationState(uiState)
-        },
-      })
+        }),
+      )
 
       // If we didn't receive any updates (cached result with no updates),
       // force a fresh verification to ensure UI updates
       if (!hasReceivedUpdate) {
         clearVerificationCache()
-        await v.runVerification({
-          onUpdate: (s: RunnerState) => {
+        await v.runVerification(
+          makeOptions((s: RunnerState) => {
             setDigest(s.releaseDigest || null)
             const uiState = mapRunnerStateToUiState(s)
             setVerificationState(uiState)
-          },
-        })
+          }),
+        )
       }
     } finally {
       // Always reset the optimistic flag
       setOptimisticVerifying(false)
     }
-  }, [])
+  }, [configRepo, resolvedServerHost])
 
   useEffect(() => {
     // If a verification document is provided, hydrate UI state from it and skip running
