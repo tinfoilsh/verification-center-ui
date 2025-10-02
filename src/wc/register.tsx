@@ -21,6 +21,10 @@ type Props = {
   verificationDocument?: import('tinfoil').VerificationDocument
   configRepo?: string
   baseUrl?: string
+  mode?: 'embedded' | 'sidebar' | 'modal'
+  open?: boolean
+  /** Only used when mode = 'sidebar' */
+  sidebarWidth?: number
 }
 
 function parseBool(v: unknown, fallback: boolean): boolean {
@@ -33,25 +37,49 @@ function parseBool(v: unknown, fallback: boolean): boolean {
   return fallback
 }
 
+function readBoolAttr(el: Element, name: string, defaultValue: boolean): boolean {
+  // If attribute is present, evaluate its value; if absent, return default
+  if (el.hasAttribute(name)) {
+    return parseBool(el.getAttribute(name), true)
+  }
+  return defaultValue
+}
+
 function currentProps(el: VerificationCenterElement): Props {
   return {
-    isDarkMode: parseBool(el.getAttribute('is-dark-mode'), true),
-    showVerificationFlow: parseBool(el.getAttribute('show-verification-flow'), true),
+    isDarkMode: readBoolAttr(el, 'is-dark-mode', true),
+    showVerificationFlow: readBoolAttr(el, 'show-verification-flow', true),
     configRepo: el.getAttribute('config-repo') ?? undefined,
     baseUrl: el.getAttribute('base-url') ?? undefined,
     verificationDocument: el.verificationDocument,
+    mode: (el.getAttribute('mode') as Props['mode']) ?? 'embedded',
+    open: readBoolAttr(el, 'open', false),
+    sidebarWidth:
+      el.getAttribute('sidebar-width') != null
+        ? Number(el.getAttribute('sidebar-width')) || undefined
+        : undefined,
   }
 }
 
 class VerificationCenterElement extends HTMLElement {
   static get observedAttributes() {
-    return ['is-dark-mode', 'show-verification-flow', 'config-repo', 'base-url']
+    return [
+      'is-dark-mode',
+      'show-verification-flow',
+      'config-repo',
+      'base-url',
+      'mode',
+      'open',
+      'sidebar-width',
+    ]
   }
 
   private _root?: Root
   private _container?: HTMLElement
   private _styleEl?: HTMLStyleElement
   private _verificationDocument?: Props['verificationDocument']
+  /** Local cache of last-rendered props to avoid unnecessary renders */
+  private _lastProps?: Props
 
   get verificationDocument(): Props['verificationDocument'] | undefined {
     return this._verificationDocument
@@ -59,6 +87,26 @@ class VerificationCenterElement extends HTMLElement {
 
   set verificationDocument(v: Props['verificationDocument'] | undefined) {
     this._verificationDocument = v
+    this._render()
+  }
+
+  get open(): boolean {
+    return parseBool(this.getAttribute('open'), true)
+  }
+
+  set open(value: boolean) {
+    if (value) this.setAttribute('open', '')
+    else this.removeAttribute('open')
+    this._render()
+  }
+
+  get mode(): Props['mode'] {
+    return (this.getAttribute('mode') as Props['mode']) ?? 'embedded'
+  }
+
+  set mode(value: Props['mode']) {
+    if (value) this.setAttribute('mode', value)
+    else this.removeAttribute('mode')
     this._render()
   }
 
@@ -70,15 +118,13 @@ class VerificationCenterElement extends HTMLElement {
     if (!this._container) {
       this._container = document.createElement('div')
       // Ensure the host element participates in layout and fills its parent
+      // For embedded mode, the host controls layout; for modal/sidebar we render fixed-position wrappers.
       this.style.display = 'block'
-      this.style.width = '100%'
-      this.style.height = '100%'
       // Make the container fill the host and use a flex column so inner content can scroll
       Object.assign(this._container.style, {
         width: '100%',
         height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
+        display: 'block',
       })
       // Inject CSS into the shadow root so styles are fully encapsulated
       const base = document.createElement('style')
@@ -113,12 +159,35 @@ class VerificationCenterElement extends HTMLElement {
   private _render() {
     if (!this._root) return
     const props = currentProps(this)
-    // Render a small wrapper that adds the standard header and hosts the verifier
-    const onClose = () => {
-      // Emit a custom event so host pages can react (e.g., hide sidebar/modal)
-      this.dispatchEvent(new CustomEvent('close', { bubbles: true }))
+
+    // Avoid re-render if props unchanged
+    const prev = this._lastProps
+    if (
+      prev &&
+      prev.isDarkMode === props.isDarkMode &&
+      prev.showVerificationFlow === props.showVerificationFlow &&
+      prev.configRepo === props.configRepo &&
+      prev.baseUrl === props.baseUrl &&
+      prev.mode === props.mode &&
+      prev.open === props.open &&
+      prev.sidebarWidth === props.sidebarWidth &&
+      prev.verificationDocument === props.verificationDocument
+    ) {
+      return
     }
-    this._root.render(
+    this._lastProps = props
+
+    const onClose = () => {
+      // Close the component by default when the header close is clicked
+      // Consumers can also listen to the 'close' event to update their own state
+      this.removeAttribute('open')
+      this.dispatchEvent(new CustomEvent('close', { bubbles: true }))
+      // Trigger a re-render after state change
+      this._render()
+    }
+
+    // Helper to render the inner app (header + center)
+    const renderApp = () =>
       React.createElement(
         'div',
         {
@@ -146,6 +215,82 @@ class VerificationCenterElement extends HTMLElement {
             React.createElement(VerificationCenter, props),
           ),
         ],
+      )
+
+    // Decide wrapper by mode
+    const mode = props.mode ?? 'embedded'
+    if (mode === 'embedded') {
+      // host controls size; fill available space
+      this._root.render(renderApp())
+      return
+    }
+
+    if (!props.open) {
+      this._root.render(null)
+      return
+    }
+
+    if (mode === 'modal') {
+      // Fixed overlay + centered panel
+      const panel = React.createElement(
+        'div',
+        {
+          style: {
+            width: 'min(720px, 100%)',
+            height: 'min(80vh, 680px)',
+            borderRadius: 8,
+            overflow: 'hidden',
+            background: props.isDarkMode ? '#0b0f16' : '#ffffff',
+            boxShadow:
+              '0 0 0 1px rgba(0,0,0,0.03), 0 25px 50px rgba(0,0,0,0.15)',
+          },
+          onClick: (e: MouseEvent) => e.stopPropagation(),
+        } as any,
+        renderApp(),
+      )
+
+      this._root.render(
+        React.createElement(
+          'div',
+          {
+            style: {
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(17,24,39,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+            },
+            onClick: onClose as any,
+          },
+          panel,
+        ),
+      )
+      return
+    }
+
+    // sidebar
+    const width = props.sidebarWidth ?? 420
+    this._root.render(
+      React.createElement(
+        'div',
+        {
+          style: {
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            height: '100vh',
+            width,
+            maxWidth: '100%',
+            background: props.isDarkMode ? '#0b0f16' : '#ffffff',
+            boxShadow:
+              '0 0 0 1px rgba(0,0,0,0.03), 0 10px 15px rgba(0,0,0,0.08)',
+            overflow: 'hidden',
+            zIndex: 9999,
+          },
+        },
+        renderApp(),
       ),
     )
   }
