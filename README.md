@@ -151,6 +151,7 @@ Supported attributes/properties:
 The built-in header includes a close button. When clicked, the component:
 - Removes the `open` attribute (hides itself), and
 - Dispatches a `close` event on the custom element.
+It also closes when the user presses Escape while a modal or sidebar is open.
 
 Vanilla JS:
 
@@ -206,3 +207,9 @@ export function Example() {
 Note for React users: for hyphenated boolean attributes on custom elements (e.g., `is-dark-mode`, `show-verification-flow`), pass string values `'true' | 'false'` to keep the attribute present during toggles.
 
 Nothing else is required — React, styles, and icons are bundled inside the component and fully isolated via Shadow DOM.
+
+
+## Notes for React apps
+
+- Import the package in a client-side context only (e.g., in `useEffect` or in a client component in Next.js) because custom elements are not defined on the server.
+- When toggling hyphenated boolean attributes (like `is-dark-mode`), set them to `'true'` or `'false'` strings so attribute presence stays in sync.

@@ -56,6 +56,12 @@ export type VerificationCenterProps = {
   configRepo?: string
   /** Override the enclave base URL/host used during verification */
   baseUrl?: string
+  /**
+   * When true, the root container stretches to fill its parent (height: 100%).
+   * For embedded usage in normal page flow, set false to allow natural height.
+   * Defaults to true for sidebar/modal containers that have explicit sizing.
+   */
+  fillContainer?: boolean
 }
 
 type VerificationStatus = 'error' | 'pending' | 'loading' | 'success'
@@ -170,6 +176,7 @@ export function VerificationCenter({
   verificationDocument,
   configRepo,
   baseUrl,
+  fillContainer = true,
 }: VerificationCenterProps) {
   // Optimistic verifying flag to avoid UI flicker before first runner update
   // Initialized to true because we auto-start verification on mount
@@ -362,7 +369,9 @@ export function VerificationCenter({
 
   return (
     <div
-      className={`tinfoil-verification-theme flex h-full w-full flex-col bg-background text-foreground ${
+      className={`tinfoil-verification-theme flex ${
+        fillContainer ? 'h-full' : ''
+      } w-full flex-col bg-background text-foreground ${
         isDarkMode ? 'dark' : ''
       }`}
       data-theme={isDarkMode ? 'dark' : 'light'}
