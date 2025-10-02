@@ -18,7 +18,8 @@ import flowStyles from '../flow/flow.css?raw'
 type Props = {
   isDarkMode?: boolean
   showVerificationFlow?: boolean
-  verificationDocument?: import('tinfoil').VerificationDocument
+  // Avoid exporting a type dependency on 'tinfoil' in public d.ts
+  verificationDocument?: unknown
   configRepo?: string
   baseUrl?: string
   mode?: 'embedded' | 'sidebar' | 'modal'
@@ -80,6 +81,8 @@ class VerificationCenterElement extends HTMLElement {
   private _verificationDocument?: Props['verificationDocument']
   /** Local cache of last-rendered props to avoid unnecessary renders */
   private _lastProps?: Props
+  /** Keydown handler for Escape-to-close when overlays are open */
+  private _onKeydown?: (e: KeyboardEvent) => void
 
   get verificationDocument(): Props['verificationDocument'] | undefined {
     return this._verificationDocument
@@ -91,13 +94,12 @@ class VerificationCenterElement extends HTMLElement {
   }
 
   get open(): boolean {
-    return parseBool(this.getAttribute('open'), true)
+    return parseBool(this.getAttribute('open'), false)
   }
 
   set open(value: boolean) {
     if (value) this.setAttribute('open', '')
     else this.removeAttribute('open')
-    this._render()
   }
 
   get mode(): Props['mode'] {
@@ -107,7 +109,6 @@ class VerificationCenterElement extends HTMLElement {
   set mode(value: Props['mode']) {
     if (value) this.setAttribute('mode', value)
     else this.removeAttribute('mode')
-    this._render()
   }
 
   connectedCallback() {
@@ -123,7 +124,7 @@ class VerificationCenterElement extends HTMLElement {
       // Make the container fill the host and use a flex column so inner content can scroll
       Object.assign(this._container.style, {
         width: '100%',
-        height: '100%',
+        height: 'auto',
         display: 'block',
       })
       // Inject CSS into the shadow root so styles are fully encapsulated
@@ -149,6 +150,11 @@ class VerificationCenterElement extends HTMLElement {
     if (this._root) {
       this._root.unmount()
       this._root = undefined
+    }
+    // Ensure we drop any global listeners
+    if (this._onKeydown) {
+      window.removeEventListener('keydown', this._onKeydown)
+      this._onKeydown = undefined
     }
   }
 
@@ -182,8 +188,30 @@ class VerificationCenterElement extends HTMLElement {
       // Consumers can also listen to the 'close' event to update their own state
       this.removeAttribute('open')
       this.dispatchEvent(new CustomEvent('close', { bubbles: true }))
-      // Trigger a re-render after state change
-      this._render()
+    }
+
+    // Decide wrapper by mode
+    const mode = props.mode ?? 'embedded'
+    // Ensure container height matches mode: natural in embedded, 100% for overlays
+    if (this._container) {
+      this._container.style.height = mode === 'embedded' ? 'auto' : '100%'
+    }
+
+    // Manage Escape-to-close listener for overlay modes
+    const wantListener = (mode === 'modal' || mode === 'sidebar') && !!props.open
+    if (wantListener && !this._onKeydown) {
+      this._onKeydown = (e: KeyboardEvent) => {
+        if (e.defaultPrevented) return
+        if (e.key === 'Escape' || e.code === 'Escape') {
+          e.stopPropagation()
+          this.removeAttribute('open')
+          this.dispatchEvent(new CustomEvent('close', { bubbles: true }))
+        }
+      }
+      window.addEventListener('keydown', this._onKeydown)
+    } else if (!wantListener && this._onKeydown) {
+      window.removeEventListener('keydown', this._onKeydown)
+      this._onKeydown = undefined
     }
 
     // Helper to render the inner app (header + center)
@@ -196,7 +224,8 @@ class VerificationCenterElement extends HTMLElement {
             display: 'flex',
             flexDirection: 'column',
             width: '100%',
-            height: '100%',
+            // In embedded mode, allow natural height; otherwise fill the container
+            height: mode === 'embedded' ? undefined : '100%',
           },
         },
         [
@@ -210,17 +239,19 @@ class VerificationCenterElement extends HTMLElement {
             'div',
             {
               key: 'content',
-              style: { flex: 1, minHeight: 0 },
+              style: mode === 'embedded' ? undefined : { flex: 1, minHeight: 0 },
             },
-            React.createElement(VerificationCenter, props),
+            React.createElement(VerificationCenter, {
+              ...props,
+              // For embedded usage, the inner app should not force height:100%
+              fillContainer: mode !== 'embedded',
+            } as any),
           ),
         ],
       )
 
-    // Decide wrapper by mode
-    const mode = props.mode ?? 'embedded'
     if (mode === 'embedded') {
-      // host controls size; fill available space
+      // Embedded mode: render inline and allow the element to size naturally
       this._root.render(renderApp())
       return
     }
@@ -262,8 +293,11 @@ class VerificationCenterElement extends HTMLElement {
               justifyContent: 'center',
               zIndex: 9999,
             },
+            role: 'dialog',
+            'aria-modal': 'true',
+            'aria-label': 'Tinfoil Verification Center',
             onClick: onClose as any,
-          },
+          } as any,
           panel,
         ),
       )
@@ -289,7 +323,9 @@ class VerificationCenterElement extends HTMLElement {
             overflow: 'hidden',
             zIndex: 9999,
           },
-        },
+          role: 'dialog',
+          'aria-label': 'Tinfoil Verification Center',
+        } as any,
         renderApp(),
       ),
     )
