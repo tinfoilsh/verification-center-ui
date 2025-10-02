@@ -19,8 +19,7 @@ import ContainerNode, { type ContainerNodeType } from './container-node'
 import TurboEdge from './turbo-edge'
 import TurboNode, { type TurboNodeData } from './turbo-node'
 
-import '@xyflow/react/dist/style.css'
-import './flow.css'
+// Styles are imported centrally via src/styles.ts for normal builds
 
 /**
  * VerificationFlow

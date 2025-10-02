@@ -1,3 +1,4 @@
+import './styles'
 export {
   VerificationCenter,
   Verifier,

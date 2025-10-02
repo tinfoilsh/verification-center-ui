@@ -1,17 +1,16 @@
 {
   "name": "@tinfoilsh/verification-center-ui",
   "version": "0.0.3",
-  "description": "React components for the Tinfoil verification center UI",
-  "main": "dist/index.js",
-  "module": "dist/esm/index.js",
-  "types": "dist/index.d.ts",
+  "description": "Self-contained Web Component for the Tinfoil verification center UI",
+  "main": "dist/wc/tinfoil-wc.es.js",
+  "module": "dist/wc/tinfoil-wc.es.js",
+  "types": "dist/wc/register.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "browser": "./dist/esm/index.js",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/index.js",
-      "default": "./dist/index.js"
+      "types": "./dist/wc/register.d.ts",
+      "browser": "./dist/wc/tinfoil-wc.es.js",
+      "import": "./dist/wc/tinfoil-wc.es.js",
+      "default": "./dist/wc/tinfoil-wc.es.js"
     }
   },
   "sideEffects": [
@@ -26,23 +25,20 @@
     "access": "public"
   },
   "scripts": {
-    "build": "npm run build:css && npm run build:cjs && npm run build:esm",
-    "build:cjs": "tsc && rsync -a --include='*/' --include='*.css' --include='*.svg' --exclude='*' src/ dist/ || true",
-    "build:esm": "tsc -p tsconfig.esm.json && rsync -a --include='*/' --include='*.css' --include='*.svg' --exclude='*' src/ dist/esm/ || true",
+    "build": "npm run build:wc",
     "build:css": "tailwindcss -c tailwind.config.js -i src/tailwind.css -o src/verification-center.css --minify",
+    "build:types": "tsc --emitDeclarationOnly --declaration --outDir dist",
+    "build:wc": "npm run build:css && vite build -c vite.wc.config.mts && npm run build:types",
     "prepublishOnly": "npm run build",
     "dev": "vite --config examples/dev/vite.config.mts"
   },
-  "peerDependencies": {
-    "@headlessui/react": "^2.1.7",
+  "peerDependencies": {},
+  "devDependencies": {
     "@xyflow/react": "*",
     "framer-motion": "*",
-    "react": "^18 || ^19",
-    "react-dom": "^18 || ^19",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "react-icons": "*",
-    "tinfoil": ">=0.8.1"
-  },
-  "devDependencies": {
     "@headlessui/react": "^2.1.7",
     "@tailwindcss/container-queries": "^0.1.1",
     "@tailwindcss/typography": "^0.5.16",
