@@ -26,11 +26,12 @@ Default usage defines a self-contained Web Component that renders inside a Shado
   })
   </script>
 
-<!-- Place the element anywhere in your page (embedded) -->
+<!-- Place the element anywhere in your page (embedded). Provide a host height. -->
 <tinfoil-verification-center
   mode="embedded"
   is-dark-mode="true"
   show-verification-flow="true"
+  style="height: min(80vh, 680px); width: min(720px, 100%); overflow: hidden; border-radius: 8px;"
   config-repo="tinfoilsh/confidential-inference-proxy"
   base-url="https://inference.tinfoil.sh"
 ></tinfoil-verification-center>
@@ -117,8 +118,10 @@ Install as usual, then import the package (default WC) once and place the elemen
 </script>
 
 <tinfoil-verification-center
+  mode="embedded"
   is-dark-mode="true"
   show-verification-flow="true"
+  style="height: min(80vh, 680px); width: min(720px, 100%); overflow: hidden; border-radius: 8px;"
   config-repo="tinfoilsh/confidential-inference-proxy"
   base-url="https://inference.tinfoil.sh"
 ></tinfoil-verification-center>

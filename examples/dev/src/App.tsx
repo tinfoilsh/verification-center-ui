@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import '@tinfoilsh/verification-center-ui'
 import { mockFailureDocument, mockSuccessDocument } from './fake-document'
 
-type DisplayMode = 'sidebar' | 'modal'
+type DisplayMode = 'sidebar' | 'modal' | 'embedded'
 type MockOutcome = 'success' | 'failure'
 
 export function App() {
@@ -121,6 +121,16 @@ export function App() {
               />
               Modal
             </label>
+            <label>
+              <input
+                type="radio"
+                name="display-mode"
+                value="embedded"
+                checked={displayMode === 'embedded'}
+                onChange={() => handleModeChange('embedded')}
+              />
+              Embedded
+            </label>
             
           </div>
         </section>
@@ -129,13 +139,25 @@ export function App() {
       <main className="app__main">Webpage</main>
 
       {/* Single custom element handles sidebar or modal */}
-      <tinfoil-verification-center
-        ref={wcRef}
-        mode={displayMode}
-        open={isVerifierOpen as unknown as any}
-        is-dark-mode={isDarkMode ? 'true' : 'false'}
-        show-verification-flow={showFlow ? 'true' : 'false'}
-      />
+      {isVerifierOpen && (
+        <tinfoil-verification-center
+          ref={wcRef}
+          mode={displayMode}
+          open={displayMode !== 'embedded' ? (isVerifierOpen as unknown as any) : undefined}
+          is-dark-mode={isDarkMode ? 'true' : 'false'}
+          show-verification-flow={showFlow ? 'true' : 'false'}
+          style={
+            displayMode === 'embedded'
+              ? ({
+                  width: 'min(720px, 100%)',
+                  height: 'min(80vh, 680px)',
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                } as React.CSSProperties)
+              : undefined
+          }
+        />
+      )}
     </div>
   )
 }
