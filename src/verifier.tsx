@@ -3,7 +3,6 @@ import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { FaGithub } from 'react-icons/fa'
 import { LuExternalLink, LuRefreshCcwDot } from 'react-icons/lu'
 import {
-  clearVerificationCache,
   loadVerifier,
   type RunVerificationOptions,
   type VerificationState as RunnerState,
@@ -87,6 +86,23 @@ type VerificationState = {
     error?: string
   }
 }
+
+const createInitialVerificationState = (): VerificationState => ({
+  code: {
+    status: 'pending',
+    measurements: undefined,
+    error: undefined,
+  },
+  runtime: {
+    status: 'pending',
+    measurements: undefined,
+    error: undefined,
+  },
+  security: {
+    status: 'pending',
+    error: undefined,
+  },
+})
 
 type VerificationStepKey =
   | 'CODE_INTEGRITY'
@@ -185,22 +201,7 @@ export function VerificationCenter({
   const [digest, setDigest] = useState<string | null>(null)
 
   const [verificationState, setVerificationState] = useState<VerificationState>(
-    {
-      code: {
-        status: 'pending' as VerificationStatus,
-        measurements: undefined,
-        error: undefined,
-      },
-      runtime: {
-        status: 'pending' as VerificationStatus,
-        measurements: undefined,
-        error: undefined,
-      },
-      security: {
-        status: 'pending' as VerificationStatus,
-        error: undefined,
-      },
-    },
+    createInitialVerificationState(),
   )
 
   const resolvedServerHost = useMemo(() => {
@@ -255,58 +256,46 @@ export function VerificationCenter({
 
   // All step updates are funneled through a single setState to keep the UI state consistent
 
-  const verifyAll = useCallback(async (forceRefresh = false) => {
-    // Mark as verifying
-    setOptimisticVerifying(true)
+  const verifyAll = useCallback(
+    async (forceRefresh = false) => {
+      setOptimisticVerifying(true)
 
-    // Clear cache if forcing refresh
-    if (forceRefresh) {
-      clearVerificationCache()
-    }
-
-    const v = await loadVerifier()
-    let hasReceivedUpdate = false
-
-    const makeOptions = (
-      onUpdate: RunVerificationOptions['onUpdate'],
-    ): RunVerificationOptions => {
-      const options: RunVerificationOptions = { onUpdate }
-      if (configRepo) {
-        options.configRepo = configRepo
+      if (forceRefresh) {
+        setVerificationState(createInitialVerificationState())
+        setDigest(null)
       }
-      if (resolvedServerHost) {
-        options.serverURL = resolvedServerHost
+
+      const makeOptions = (
+        onUpdate: RunVerificationOptions['onUpdate'],
+      ): RunVerificationOptions => {
+        const options: RunVerificationOptions = { onUpdate }
+        if (configRepo) {
+          options.configRepo = configRepo
+        }
+        if (resolvedServerHost) {
+          options.serverURL = resolvedServerHost
+        }
+        return options
       }
-      return options
-    }
 
-    try {
-      await v.runVerification(
-        makeOptions((s: RunnerState) => {
-          hasReceivedUpdate = true
-          setDigest(s.releaseDigest || null)
-          const uiState = mapRunnerStateToUiState(s)
-          setVerificationState(uiState)
-        }),
-      )
-
-      // If we didn't receive any updates (cached result with no updates),
-      // force a fresh verification to ensure UI updates
-      if (!hasReceivedUpdate) {
-        clearVerificationCache()
-        await v.runVerification(
+      try {
+        const verifier = await loadVerifier()
+        const finalResult = await verifier.runVerification(
           makeOptions((s: RunnerState) => {
             setDigest(s.releaseDigest || null)
             const uiState = mapRunnerStateToUiState(s)
             setVerificationState(uiState)
           }),
         )
+
+        setDigest(finalResult.releaseDigest || null)
+        setVerificationState(mapRunnerStateToUiState(finalResult))
+      } finally {
+        setOptimisticVerifying(false)
       }
-    } finally {
-      // Always reset the optimistic flag
-      setOptimisticVerifying(false)
-    }
-  }, [configRepo, resolvedServerHost])
+    },
+    [configRepo, resolvedServerHost],
+  )
 
   useEffect(() => {
     // If a verification document is provided, hydrate UI state from it and skip running
