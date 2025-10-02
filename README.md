@@ -1,6 +1,6 @@
 # Tinfoil Verification Center UI
 
-Self‑contained Web Component that renders the Tinfoil verification center UI inside a Shadow DOM. It bundles React and styles internally, so you don’t need React in your app.
+Self‑contained Web Component that renders the Tinfoil verification center UI inside a Shadow DOM. It bundles its own runtime and styles; no React is required in your app.
 
 ## Installation
 
@@ -12,7 +12,7 @@ Default usage requires only a modern browser with ES modules. No React in the ho
 
 ## Usage
 
-Default usage defines a self-contained Web Component that renders inside a Shadow DOM and bundles React + styles internally.
+Default usage defines a self-contained Web Component that renders inside a Shadow DOM and bundles its own runtime and styles.
 
 ```html
 <!-- Register the custom element (ESM) -->
@@ -26,29 +26,39 @@ Default usage defines a self-contained Web Component that renders inside a Shado
   })
   </script>
 
-<!-- Place the element anywhere in your page -->
+<!-- Place the element anywhere in your page (embedded) -->
 <tinfoil-verification-center
+  mode="embedded"
   is-dark-mode="true"
   show-verification-flow="true"
   config-repo="tinfoilsh/confidential-inference-proxy"
   base-url="https://inference.tinfoil.sh"
 ></tinfoil-verification-center>
+
+<!-- Sidebar: fixed right panel with built-in header and close -->
+<tinfoil-verification-center
+  mode="sidebar"
+  open
+  is-dark-mode="true"
+  show-verification-flow="true"
+  sidebar-width="420"
+></tinfoil-verification-center>
+
+<!-- Modal: full-screen overlay with centered panel -->
+<tinfoil-verification-center mode="modal" open is-dark-mode="true"></tinfoil-verification-center>
 ```
 
-When no `verificationDocument` prop is supplied the component will call `loadVerifier()` from the `tinfoil` package.
-Otherwise, you can provide `verificationDocument` when the Tinfoil client is initialized successfully in your application. 
+When no `verificationDocument` prop is supplied the component will call `loadVerifier()` from the `tinfoil` package. Otherwise, you can provide `verificationDocument` when the Tinfoil client is initialized successfully in your application.
 
 ### Props
 
-`VerificationCenter` exposes a small set of props so you can integrate it with the rest of your UI:
+The component exposes a small set of attributes/properties so you can integrate it with the rest of your UI:
 
-- `isDarkMode?: boolean` – toggles the dark theme (defaults to `true`).
-- `showVerificationFlow?: boolean` – hides the network diagram when `false` (defaults to `true`).
-- `verificationDocument?: VerificationDocument` – supply a precomputed verification document to skip running the verifier in the browser.
-- `configRepo?: string` – override the GitHub repo the verifier pulls measurement configs from (defaults to `tinfoilsh/confidential-inference-proxy`).
-- `baseUrl?: string` – override the enclave host/base URL that the verifier attests against (defaults to `https://inference.tinfoil.sh`).
-
-React components are no longer exported. The package ships only the Web Component for a simpler installation and integration story.
+- `is-dark-mode?: boolean` – toggles the dark theme (defaults to `true`).
+- `show-verification-flow?: boolean` – hides the network diagram when `false` (defaults to `true`).
+- `verificationDocument?: VerificationDocument` – property to supply a precomputed verification document to skip running the verifier in the browser.
+- `config-repo?: string` – override the GitHub repo the verifier pulls measurement configs from (defaults to `tinfoilsh/confidential-inference-proxy`).
+- `base-url?: string` – override the enclave host/base URL that the verifier attests against (defaults to `https://inference.tinfoil.sh`).
 
 ### Using the result from `TinfoilAI`
 
@@ -124,10 +134,72 @@ el.verificationDocument = myVerificationDocument // object from tinfoil client
 ```
 
 Supported attributes/properties:
+- `mode` ("embedded" | "sidebar" | "modal"; default `embedded`)
+- `open` (boolean; for `sidebar`/`modal` to show/hide UI)
+- `sidebar-width` (number in px; default `420` when `mode="sidebar"`)
 - `is-dark-mode` (boolean, default `true`)
 - `show-verification-flow` (boolean, default `true`)
 - `config-repo` (string)
 - `base-url` (string)
 - `verificationDocument` (property only)
+
+### Close event (sidebar and modal)
+
+The built-in header includes a close button. When clicked, the component:
+- Removes the `open` attribute (hides itself), and
+- Dispatches a `close` event on the custom element.
+
+Vanilla JS:
+
+```html
+<tinfoil-verification-center id="vc" mode="sidebar" open></tinfoil-verification-center>
+<script type="module">
+  import '@tinfoilsh/verification-center-ui'
+  const el = document.getElementById('vc')
+  el.addEventListener('close', () => {
+    // Optional: sync your app state or analytics
+    console.log('Verification Center closed')
+  })
+  // To reopen later:
+  function openVc() { el.setAttribute('open', '') }
+  function closeVc() { el.removeAttribute('open') }
+  window.openVc = openVc
+  window.closeVc = closeVc
+  
+  // If you already have a verification document:
+  // el.verificationDocument = myVerificationDocument
+  
+</script>
+```
+
+React:
+
+```tsx
+import { useEffect, useRef, useState } from 'react'
+import '@tinfoilsh/verification-center-ui'
+
+export function Example() {
+  const ref = useRef<any>(null)
+  const [open, setOpen] = useState(true)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const onClose = () => setOpen(false)
+    el.addEventListener('close', onClose)
+    return () => el.removeEventListener('close', onClose)
+  }, [])
+
+  return (
+    <tinfoil-verification-center
+      ref={ref}
+      mode="modal"
+      open={open as any}
+    />
+  )
+}
+```
+
+Note for React users: for hyphenated boolean attributes on custom elements (e.g., `is-dark-mode`, `show-verification-flow`), pass string values `'true' | 'false'` to keep the attribute present during toggles.
 
 Nothing else is required — React, styles, and icons are bundled inside the component and fully isolated via Shadow DOM.
