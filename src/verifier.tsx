@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import './verification-center.css'
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { FaGithub } from 'react-icons/fa'
 import { LuExternalLink, LuRefreshCcwDot } from 'react-icons/lu'

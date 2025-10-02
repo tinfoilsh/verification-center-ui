@@ -9,13 +9,14 @@ const __dirname = dirname(__filename)
 export default defineConfig({
   root: resolve(__dirname),
   resolve: {
-    alias: {
-      '@': resolve(__dirname, 'src'),
-      '@tinfoilsh/verification-center-ui': resolve(
-        __dirname,
-        '../../dist/esm/index.js',
-      ),
-    },
+    alias: [
+      { find: '@', replacement: resolve(__dirname, 'src') },
+      // Emulate site usage: consume the built WC bundle directly
+      {
+        find: '@tinfoilsh/verification-center-ui',
+        replacement: resolve(__dirname, '../../dist/wc/tinfoil-wc.es.js'),
+      },
+    ],
   },
   plugins: [react()],
   server: {

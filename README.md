@@ -1,41 +1,38 @@
 # Tinfoil Verification Center UI
 
-React components that render the Tinfoil verification center for displaying security information related to the Tinfoil secure hardware enclave verification. Use it with the `tinfoil` SDK to display a verification UI on your react web page.
+Self‑contained Web Component that renders the Tinfoil verification center UI inside a Shadow DOM. It bundles React and styles internally, so you don’t need React in your app.
 
 ## Installation
 
 ```bash
-npm install tinfoil @tinfoilsh/verification-center-ui
+npm install @tinfoilsh/verification-center-ui
 ```
 
-Install the peer dependencies your host app must provide:
-
-```bash
-npm install react react-dom @xyflow/react react-icons framer-motion @headlessui/react tinfoil
-```
-
-> **Requirements:** The UI expects React 18 or newer and a bundler that can import CSS files from npm packages (Vite, Next.js, Create React App, etc.). `tinfoil` version `0.8.1` or later must be available at runtime, because the verifier calls into that SDK.
+Default usage requires only a modern browser with ES modules. No React in the host app is required.
 
 ## Usage
 
-The component talks to the `tinfoil` SDK in the browser. Mount it anywhere you want to surface verification status.
+Default usage defines a self-contained Web Component that renders inside a Shadow DOM and bundles React + styles internally.
 
-```tsx
-import { VerificationCenter } from '@tinfoilsh/verification-center-ui'
+```html
+<!-- Register the custom element (ESM) -->
+<script type="module">
+  import '@tinfoilsh/verification-center-ui'
+  // Custom element <tinfoil-verification-center> is now defined
+  // Optional: you can set properties after mount
+  window.addEventListener('DOMContentLoaded', () => {
+    const el = document.querySelector('tinfoil-verification-center')
+    // el.verificationDocument = { ... } // when available
+  })
+  </script>
 
-export function VerificationPage({
-  document,
-  theme = 'dark',
-  showFlow = true,
-}) {
-  return (
-    <VerificationCenter
-      isDarkMode={theme === 'dark'}
-      showVerificationFlow={showFlow}
-      verificationDocument={document}
-    />
-  )
-}
+<!-- Place the element anywhere in your page -->
+<tinfoil-verification-center
+  is-dark-mode="true"
+  show-verification-flow="true"
+  config-repo="tinfoilsh/confidential-inference-proxy"
+  base-url="https://inference.tinfoil.sh"
+></tinfoil-verification-center>
 ```
 
 When no `verificationDocument` prop is supplied the component will call `loadVerifier()` from the `tinfoil` package.
@@ -51,83 +48,33 @@ Otherwise, you can provide `verificationDocument` when the Tinfoil client is ini
 - `configRepo?: string` – override the GitHub repo the verifier pulls measurement configs from (defaults to `tinfoilsh/confidential-inference-proxy`).
 - `baseUrl?: string` – override the enclave host/base URL that the verifier attests against (defaults to `https://inference.tinfoil.sh`).
 
-### Layout wrappers
-
-The package ships with both a sidebar drawer and a centered modal built around `VerificationCenter`:
-
-- `VerifierSidebar` slides in from the right edge of the screen. It requires `isOpen`/`setIsOpen` state, plus the same optional props you pass to `VerificationCenter` (`isDarkMode`, `showVerificationFlow`, `verificationDocument`, `configRepo`, `baseUrl`).
-- `VerifierModal` renders the content inside a Headless UI `Dialog`. Provide `isOpen`/`setIsOpen`, and optionally forward the verification props.
-
-```tsx
-import { useState } from 'react'
-import {
-  VerificationCenter,
-  VerifierSidebar,
-  VerifierModal,
-} from '@tinfoilsh/verification-center-ui'
-import type { VerificationDocument } from 'tinfoil/verifier'
-
-export function VerificationEntryPoints({ document }: { document?: VerificationDocument }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
-
-  return (
-    <>
-      <button onClick={() => setSidebarOpen(true)}>Open Sidebar</button>
-      <button onClick={() => setModalOpen(true)}>Open Modal</button>
-
-      <VerifierSidebar
-        isOpen={sidebarOpen}
-        setIsOpen={setSidebarOpen}
-        verificationDocument={document}
-      />
-
-      <VerifierModal
-        isOpen={modalOpen}
-        setIsOpen={setModalOpen}
-        verificationDocument={document}
-      />
-    </>
-  )
-}
-```
+React components are no longer exported. The package ships only the Web Component for a simpler installation and integration story.
 
 ### Using the result from `TinfoilAI`
 
-If you already bootstrap a `TinfoilAI` client you can reuse its verification document instead of triggering another attestation pass. This is useful when you want to show the UI alongside an inference experience that already authenticated against Tinfoil.
+If your app already initializes a `TinfoilAI` client you can reuse its verification document instead of triggering another attestation pass. Set it on the Web Component as a property:
 
-```tsx
-import { useEffect, useState } from 'react'
-import { VerificationCenter } from '@tinfoilsh/verification-center-ui'
-import { TinfoilAI } from 'tinfoil'
-import type { VerificationDocument } from 'tinfoil/verifier'
+```html
+<script type="module">
+  import '@tinfoilsh/verification-center-ui'
+  import { TinfoilAI } from 'tinfoil'
 
-export function VerifiedChat() {
-  const [verificationDocument, setVerificationDocument] = useState<VerificationDocument>()
-
-  useEffect(() => {
+  async function init() {
     const client = new TinfoilAI({
-      apiKey: process.env.NEXT_PUBLIC_TINFOIL_API_KEY,
-      baseURL: process.env.NEXT_PUBLIC_TINFOIL_BASE_URL,
+      apiKey: '<YOUR_API_KEY>',
+      baseURL: 'https://inference.tinfoil.sh',
     })
+    await client.ready()
+    const doc = await client.getVerificationDocument()
 
-    client
-      .ready()
-      .then(() => client.getVerificationDocument())
-      .then((document) => setVerificationDocument(document))
-      .catch((error) => {
-        console.error('Failed to load Tinfoil verification', error)
-      })
-  }, [])
+    const el = document.querySelector('tinfoil-verification-center')
+    if (el) el.verificationDocument = doc
+  }
 
-  return (
-    <VerificationCenter
-      isDarkMode
-      showVerificationFlow
-      verificationDocument={verificationDocument}
-    />
-  )
-}
+  init().catch(console.error)
+</script>
+
+<tinfoil-verification-center is-dark-mode="true" show-verification-flow="true"></tinfoil-verification-center>
 ```
 
 ## Local Demo
@@ -140,8 +87,47 @@ npm run build # generates dist/ so the demo consumes the packaged bundle
 npm run dev
 ```
 
-Open the printed URL (defaults to http://localhost:5173) to explore the UI. The demo lets you toggle dark mode, collapse or expand the verification flow diagram, and switch between the built-in mock document and running the live verifier.
+Open the printed URL (defaults to http://localhost:5173) to explore the UI. The demo lets you toggle dark mode, collapse or expand the verification flow diagram, switch between the built-in mock documents, and choose a display mode: Sidebar, Modal, or Web Component (Shadow DOM).
 
 ## Remote Demo
 
 See it in action at [demo.tinfoil.sh](https://demo.tinfoil.sh).
+
+## Web Component (Shadow DOM)
+
+The package provides a completely self-contained UI that won’t leak styles or depend on your app’s React. It renders inside a Shadow DOM and includes all required dependencies.
+
+Install as usual, then import the package (default WC) once and place the element anywhere in your page or app:
+
+```html
+<!-- ESM import (bundlers) -->
+<script type="module">
+  import '@tinfoilsh/verification-center-ui'
+  // custom element <tinfoil-verification-center> is now defined
+</script>
+
+<tinfoil-verification-center
+  is-dark-mode="true"
+  show-verification-flow="true"
+  config-repo="tinfoilsh/confidential-inference-proxy"
+  base-url="https://inference.tinfoil.sh"
+></tinfoil-verification-center>
+```
+
+You can also set the `verificationDocument` as a property from JavaScript when you already have one from your app’s Tinfoil client:
+
+```ts
+import '@tinfoilsh/verification-center-ui'
+
+const el = document.querySelector('tinfoil-verification-center')!
+el.verificationDocument = myVerificationDocument // object from tinfoil client
+```
+
+Supported attributes/properties:
+- `is-dark-mode` (boolean, default `true`)
+- `show-verification-flow` (boolean, default `true`)
+- `config-repo` (string)
+- `base-url` (string)
+- `verificationDocument` (property only)
+
+Nothing else is required — React, styles, and icons are bundled inside the component and fully isolated via Shadow DOM.
