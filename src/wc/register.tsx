@@ -83,6 +83,10 @@ class VerificationCenterElement extends HTMLElement {
   private _lastProps?: Props
   /** Keydown handler for Escape-to-close when overlays are open */
   private _onKeydown?: (e: KeyboardEvent) => void
+  /** Animate open on next frame (mount/enter overlay) */
+  private _animateOpenNextFrame?: boolean
+  /** RAF id for pending animation scheduling */
+  private _rafId?: number
 
   get verificationDocument(): Props['verificationDocument'] | undefined {
     return this._verificationDocument
@@ -100,6 +104,8 @@ class VerificationCenterElement extends HTMLElement {
   set open(value: boolean) {
     if (value) this.setAttribute('open', '')
     else this.removeAttribute('open')
+    // Ensure immediate update even if host set property without attribute mutation batching
+    this._render()
   }
 
   get mode(): Props['mode'] {
@@ -109,6 +115,8 @@ class VerificationCenterElement extends HTMLElement {
   set mode(value: Props['mode']) {
     if (value) this.setAttribute('mode', value)
     else this.removeAttribute('mode')
+    // Re-render to apply layout/height changes immediately
+    this._render()
   }
 
   connectedCallback() {
@@ -156,6 +164,10 @@ class VerificationCenterElement extends HTMLElement {
       window.removeEventListener('keydown', this._onKeydown)
       this._onKeydown = undefined
     }
+    if (this._rafId != null) {
+      cancelAnimationFrame(this._rafId)
+      this._rafId = undefined
+    }
   }
 
   attributeChangedCallback() {
@@ -166,10 +178,10 @@ class VerificationCenterElement extends HTMLElement {
     if (!this._root) return
     const props = currentProps(this)
 
-    // Avoid re-render if props unchanged
+    // Avoid re-render if props unchanged (unless we planned an animation tick)
     const prev = this._lastProps
-    if (
-      prev &&
+    const propsUnchanged =
+      !!prev &&
       prev.isDarkMode === props.isDarkMode &&
       prev.showVerificationFlow === props.showVerificationFlow &&
       prev.configRepo === props.configRepo &&
@@ -178,7 +190,7 @@ class VerificationCenterElement extends HTMLElement {
       prev.open === props.open &&
       prev.sidebarWidth === props.sidebarWidth &&
       prev.verificationDocument === props.verificationDocument
-    ) {
+    if (propsUnchanged && !this._animateOpenNextFrame) {
       return
     }
     this._lastProps = props
@@ -187,7 +199,9 @@ class VerificationCenterElement extends HTMLElement {
       // Close the component by default when the header close is clicked
       // Consumers can also listen to the 'close' event to update their own state
       this.removeAttribute('open')
-      this.dispatchEvent(new CustomEvent('close', { bubbles: true }))
+      this.dispatchEvent(
+        new CustomEvent('close', { bubbles: true, composed: true }),
+      )
     }
 
     // Decide wrapper by mode
@@ -205,7 +219,9 @@ class VerificationCenterElement extends HTMLElement {
         if (e.key === 'Escape' || e.code === 'Escape') {
           e.stopPropagation()
           this.removeAttribute('open')
-          this.dispatchEvent(new CustomEvent('close', { bubbles: true }))
+          this.dispatchEvent(
+            new CustomEvent('close', { bubbles: true, composed: true }),
+          )
         }
       }
       window.addEventListener('keydown', this._onKeydown)
@@ -256,10 +272,30 @@ class VerificationCenterElement extends HTMLElement {
       return
     }
 
-    if (!props.open) {
-      this._root.render(null)
-      return
+    // Respect reduced motion preference
+    const reducedMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    // Prepare opening animation on first overlay render with open=true
+    const enteringOverlayInitially =
+      (mode === 'modal' || mode === 'sidebar') &&
+      !!props.open &&
+      (!prev || prev.mode === 'embedded') &&
+      !this._animateOpenNextFrame
+    if (enteringOverlayInitially) {
+      // Schedule a second render where styles switch to the open state
+      this._animateOpenNextFrame = true
+      this._rafId = requestAnimationFrame(() => {
+        this._rafId = undefined
+        this._animateOpenNextFrame = false
+        this._render()
+      })
     }
+
+    // For style computation, treat first overlay open as closed for one frame
+    const openForStyle = enteringOverlayInitially ? false : !!props.open
 
     if (mode === 'modal') {
       // Fixed overlay + centered panel
@@ -274,12 +310,20 @@ class VerificationCenterElement extends HTMLElement {
             background: props.isDarkMode ? '#0b0f16' : '#ffffff',
             boxShadow:
               '0 0 0 1px rgba(0,0,0,0.03), 0 25px 50px rgba(0,0,0,0.15)',
+            opacity: openForStyle ? 1 : 0.98,
+            transform: openForStyle
+              ? 'scale(1) translateY(0)'
+              : 'scale(0.98) translateY(4px)',
+            transition: reducedMotion
+              ? 'none'
+              : 'transform 250ms cubic-bezier(.2,.8,.2,1), opacity 200ms ease',
           },
           onClick: (e: MouseEvent) => e.stopPropagation(),
         } as any,
         renderApp(),
       )
 
+      const isOpen = openForStyle
       this._root.render(
         React.createElement(
           'div',
@@ -292,11 +336,23 @@ class VerificationCenterElement extends HTMLElement {
               alignItems: 'center',
               justifyContent: 'center',
               zIndex: 9999,
+              opacity: openForStyle ? 1 : 0,
+              pointerEvents: openForStyle ? 'auto' : 'none',
+              transition: reducedMotion ? 'none' : 'opacity 200ms ease',
             },
             role: 'dialog',
             'aria-modal': 'true',
             'aria-label': 'Tinfoil Verification Center',
+            'aria-hidden': openForStyle ? 'false' : 'true',
             onClick: onClose as any,
+            onTransitionEnd: (e: TransitionEvent) => {
+              // Dispatch 'closed' after fade-out completes
+              if (!isOpen && e.propertyName === 'opacity') {
+                this.dispatchEvent(
+                  new CustomEvent('closed', { bubbles: true, composed: true }),
+                )
+              }
+            },
           } as any,
           panel,
         ),
@@ -306,6 +362,7 @@ class VerificationCenterElement extends HTMLElement {
 
     // sidebar
     const width = props.sidebarWidth ?? 420
+    const isOpen = openForStyle
     this._root.render(
       React.createElement(
         'div',
@@ -322,9 +379,20 @@ class VerificationCenterElement extends HTMLElement {
               '0 0 0 1px rgba(0,0,0,0.03), 0 10px 15px rgba(0,0,0,0.08)',
             overflow: 'hidden',
             zIndex: 9999,
+            transform: openForStyle ? 'translateX(0)' : 'translateX(100%)',
+            pointerEvents: openForStyle ? 'auto' : 'none',
+            transition: reducedMotion ? 'none' : 'transform 250ms cubic-bezier(.2,.8,.2,1)',
           },
           role: 'dialog',
           'aria-label': 'Tinfoil Verification Center',
+          'aria-hidden': openForStyle ? 'false' : 'true',
+          onTransitionEnd: (e: TransitionEvent) => {
+            if (!isOpen && e.propertyName === 'transform') {
+              this.dispatchEvent(
+                new CustomEvent('closed', { bubbles: true, composed: true }),
+              )
+            }
+          },
         } as any,
         renderApp(),
       ),

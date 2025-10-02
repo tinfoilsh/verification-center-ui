@@ -32,21 +32,22 @@ export function App() {
     [isDarkMode],
   )
 
-  // Ref the custom element to set the document and listen for close
+  // Callback ref to always bind/unbind listeners on the latest element instance
   const wcRef = useRef<any>(null)
-  useEffect(() => {
-    const el = wcRef.current as any
-    if (!el) return
-    const handleClose = () => setIsVerifierOpen(false)
-    el.addEventListener('close', handleClose)
-    return () => el.removeEventListener('close', handleClose)
-  }, [])
-
-  useEffect(() => {
-    const el = wcRef.current as any
-    if (!el) return
-    el.verificationDocument = verificationDocument
+  const setWcRef = useCallback((el: any) => {
+    // Unbind from previous instance
+    if (wcRef.current) {
+      wcRef.current.removeEventListener('close', onClose)
+    }
+    wcRef.current = el
+    if (el) {
+      el.addEventListener('close', onClose)
+      // Keep document in sync on mount
+      el.verificationDocument = verificationDocument
+    }
   }, [verificationDocument])
+
+  const onClose = useCallback(() => setIsVerifierOpen(false), [])
 
   return (
     <div className={appClassName}>
@@ -138,26 +139,24 @@ export function App() {
 
       <main className="app__main">Webpage</main>
 
-      {/* Single custom element handles sidebar or modal */}
-      {isVerifierOpen && (
-        <tinfoil-verification-center
-          ref={wcRef}
-          mode={displayMode}
-          open={displayMode !== 'embedded' ? (isVerifierOpen as unknown as any) : undefined}
-          is-dark-mode={isDarkMode ? 'true' : 'false'}
-          show-verification-flow={showFlow ? 'true' : 'false'}
-          style={
-            displayMode === 'embedded'
-              ? ({
-                  width: 'min(720px, 100%)',
-                  height: 'min(80vh, 680px)',
-                  borderRadius: 8,
-                  overflow: 'hidden',
-                } as React.CSSProperties)
-              : undefined
-          }
-        />
-      )}
+      {/* Always render the element; toggle visibility via `open` for overlays */}
+      <tinfoil-verification-center
+        ref={setWcRef as any}
+        mode={displayMode}
+        open={displayMode !== 'embedded' ? (isVerifierOpen as unknown as any) : undefined}
+        is-dark-mode={isDarkMode ? 'true' : 'false'}
+        show-verification-flow={showFlow ? 'true' : 'false'}
+        style={
+          displayMode === 'embedded'
+            ? ({
+                width: 'min(720px, 100%)',
+                height: 'min(80vh, 680px)',
+                borderRadius: 8,
+                overflow: 'hidden',
+              } as React.CSSProperties)
+            : undefined
+        }
+      />
     </div>
   )
 }
