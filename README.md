@@ -24,7 +24,7 @@ Default usage defines a self-contained Web Component that renders inside a Shado
     const el = document.querySelector('tinfoil-verification-center')
     // el.verificationDocument = { ... } // when available
   })
-  </script>
+</script>
 
 <!-- Place the element anywhere in your page (embedded). Provide a host height. -->
 <tinfoil-verification-center
@@ -47,7 +47,7 @@ Default usage defines a self-contained Web Component that renders inside a Shado
 <tinfoil-verification-center mode="modal" open is-dark-mode="true"></tinfoil-verification-center>
 ```
 
-The component now focuses purely on rendering attestation documents. Provide a `verificationDocument` property when you have one available (for example, from the `tinfoil` client or your own attestation service). To enable the "Verify Again" button you can also supply an `onRequestVerificationDocument` callback; it will be invoked whenever the user requests a refresh and should resolve to a new document.
+The component focuses purely on rendering attestation documents. Provide a `verificationDocument` property when you have one available (for example, from the `tinfoil` client). To enable the "Verify Again" button you can also supply an `onRequestVerificationDocument` callback; it will be invoked whenever the user requests a refresh and should resolve to a new document.
 
 ### Props
 
@@ -70,7 +70,6 @@ If your app already initializes a `TinfoilAI` client you can reuse its verificat
   async function init() {
     const client = new TinfoilAI({
       apiKey: '<YOUR_API_KEY>',
-      baseURL: 'https://inference.tinfoil.sh',
     })
     await client.ready()
     const doc = await client.getVerificationDocument()
@@ -88,7 +87,7 @@ If your app already initializes a `TinfoilAI` client you can reuse its verificat
 
 <tinfoil-verification-center is-dark-mode="true" show-verification-flow="true"></tinfoil-verification-center>
 
-> The UI package no longer bundles the `tinfoil` client. If you want to fetch attestation documents directly from Tinfoil, install the `tinfoil` package in your application and pass the resulting documents into the component as shown above.
+> The UI doesn't bundle the `tinfoil` client. If you want to fetch attestation documents directly from Tinfoil, install the `tinfoil` package in your application and pass the resulting documents into the component as shown above.
 ```
 
 ## Local Demo
