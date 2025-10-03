@@ -1,7 +1,7 @@
 /**
  * Shared attestation document types used by the verification UI.
- * These were originally sourced from the `tinfoil` package but are now
- * defined locally so the UI can operate independently of that runtime.
+ * These should match the `tinfoil` package and are defined locally so 
+ * the UI can operate independently of that runtime.
  */
 export interface AttestationMeasurement {
   type: string

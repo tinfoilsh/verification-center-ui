@@ -9,11 +9,8 @@ type VerifierModalProps = {
   isOpen: boolean
   setIsOpen: (isOpen: boolean) => void
   isDarkMode?: boolean
-  /** Whether to display the verification flow diagram. Defaults to true */
   showVerificationFlow?: boolean
-  /** Optional precomputed verification document from client */
-  verificationDocument?: VerificationDocument
-  /** Optional callback for requesting a fresh verification document */
+  verificationDocument: VerificationDocument
   onRequestVerificationDocument?:
     VerificationCenterProps['onRequestVerificationDocument']
 }

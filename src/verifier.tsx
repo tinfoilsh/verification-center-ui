@@ -8,38 +8,6 @@ import { CollapsibleFlowDiagram, VerificationFlow } from './flow'
 import { MeasurementDiff, ProcessStep } from './steps'
 import VerificationStatus from './verification-status'
 
-/**
- * VERIFIER COMPONENT OVERVIEW
- * ==========================
- *
- * This component performs three critical security verifications:
- *
- * 1. REMOTE ATTESTATION (Enclave Verification):
- *    - Fetches attestation from the secure enclave
- *    - Validates signatures from hardware manufacturers (NVIDIA/AMD)
- *    - Extracts the measurement (hash) of code currently running in the enclave
- *
- * 2. CODE INTEGRITY (Source Code Verification):
- *    - Fetches the latest release hash from GitHub
- *    - Retrieves measurement from Sigstore transparency log
- *    - Verifies that GitHub Actions properly built and signed the code
- *
- * 3. CODE CONSISTENCY (Security Verification):
- *    - Compares the enclave measurement with the GitHub Actions/Sigstore measurement
- *    - Ensures the code running in the enclave matches the published and verified source
- *    - Prevents supply chain attacks by confirming code consistency
- *
- * VERIFICATION MODE:
- * This component implements "audit-time verification" - verifying enclave integrity
- * out-of-band rather than during the actual connection. This approach relies on
- * attestation transparency and certificate transparency logs to create an immutable
- * audit trail. Learn more: https://docs.tinfoil.sh/verification/comparison
- *
- * Verification uses the tinfoil package's verifier runner and step updates.
- */
-
-// No local WASM runtime or globals are required.
-
 // Props passed to the main Verification Center component
 type VerificationDocumentRequestHandler = () =>
   | VerificationDocument
@@ -49,9 +17,7 @@ type VerificationDocumentRequestHandler = () =>
 
 export type VerificationCenterProps = {
   isDarkMode?: boolean
-  /** Whether to show the verification flow diagram. Defaults to true */
   showVerificationFlow?: boolean
-  /** Optional precomputed verification document from client */
   verificationDocument?: VerificationDocument
   /**
    * Optional callback invoked when the user clicks "Verify Again".
@@ -286,10 +252,6 @@ export function VerificationCenter({
     [optimisticVerifying, flowStatus],
   )
 
-  const refreshButtonClasses = isDarkMode
-    ? 'border-border-strong bg-surface-chat text-content-primary hover:bg-surface-chat/80 disabled:cursor-not-allowed disabled:text-content-muted disabled:hover:bg-surface-chat'
-    : 'border-border-subtle bg-surface-card text-content-primary hover:bg-surface-card/80 disabled:cursor-not-allowed disabled:text-content-muted disabled:hover:bg-surface-card'
-
   const secondaryButtonClasses = isDarkMode
     ? 'border-border-subtle bg-transparent text-content-secondary hover:bg-surface-card/80'
     : 'border-border-subtle bg-surface-card text-content-secondary hover:bg-surface-card/80'
@@ -376,7 +338,6 @@ export function VerificationCenter({
     requestVerificationDocument,
   ])
 
-  // Flow status and verifying spinner are derived via useMemo above
 
   useEffect(() => {
     // More robust Safari detection

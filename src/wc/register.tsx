@@ -25,7 +25,6 @@ type Props = {
     VerificationCenterProps['onRequestVerificationDocument']
   mode?: 'embedded' | 'sidebar' | 'modal'
   open?: boolean
-  /** Only used when mode = 'sidebar' */
   sidebarWidth?: number
 }
 
@@ -40,7 +39,6 @@ function parseBool(v: unknown, fallback: boolean): boolean {
 }
 
 function readBoolAttr(el: Element, name: string, defaultValue: boolean): boolean {
-  // If attribute is present, evaluate its value; if absent, return default
   if (el.hasAttribute(name)) {
     return parseBool(el.getAttribute(name), true)
   }
