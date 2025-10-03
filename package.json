@@ -1,6 +1,6 @@
 {
   "name": "@tinfoilsh/verification-center-ui",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Self-contained Web Component for the Tinfoil verification center UI",
   "main": "dist/wc/tinfoil-wc.es.js",
   "module": "dist/wc/tinfoil-wc.es.js",
