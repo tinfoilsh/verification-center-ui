@@ -12,8 +12,6 @@ declare global {
       > & {
         'is-dark-mode'?: boolean | string
         'show-verification-flow'?: boolean | string
-        'config-repo'?: string
-        'base-url'?: string
         mode?: 'embedded' | 'sidebar' | 'modal'
         open?: boolean | string
         'sidebar-width'?: number | string

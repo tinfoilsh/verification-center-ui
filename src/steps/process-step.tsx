@@ -5,7 +5,7 @@ import { IoCodeSlashOutline } from 'react-icons/io5'
 import { StatusIcon } from './status-icon'
 
 // Brand assets used in the step details
-import type { VerificationDocument } from 'tinfoil'
+import type { VerificationDocument } from '../types/verification'
 import {
   amdIcon,
   cpuIcon,
