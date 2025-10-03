@@ -1,4 +1,4 @@
-import type { VerificationDocument } from 'tinfoil/verifier'
+import type { VerificationDocument } from '../../../src/types/verification'
 
 const baseDocument: VerificationDocument = {
   configRepo: 'tinfoilsh/example-configs',

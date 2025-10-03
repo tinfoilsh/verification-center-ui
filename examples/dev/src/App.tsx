@@ -44,6 +44,7 @@ export function App() {
       el.addEventListener('close', onClose)
       // Keep document in sync on mount
       el.verificationDocument = verificationDocument
+      el.onRequestVerificationDocument = async () => verificationDocument
     }
   }, [verificationDocument])
 

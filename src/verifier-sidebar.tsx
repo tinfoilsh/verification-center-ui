@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { CONSTANTS } from './constants'
 import { VerificationCenter } from './verifier'
+import type { VerificationCenterProps } from './verifier'
+import type { VerificationDocument } from './types/verification'
 import { VerifierHeader } from './verifier-header'
 
 type VerifierSidebarProps = {
@@ -12,11 +14,10 @@ type VerifierSidebarProps = {
   /** Whether to display the verification flow diagram. Defaults to true */
   showVerificationFlow?: boolean
   /** Optional precomputed verification document from client */
-  verificationDocument?: import('tinfoil').VerificationDocument
-  /** Override the GitHub config repository used during verification */
-  configRepo?: string
-  /** Override the enclave base URL/host used during verification */
-  baseUrl?: string
+  verificationDocument?: VerificationDocument
+  /** Optional callback for requesting a fresh verification document */
+  onRequestVerificationDocument?:
+    VerificationCenterProps['onRequestVerificationDocument']
 }
 
 export function VerifierSidebar({
@@ -26,12 +27,9 @@ export function VerifierSidebar({
   width = CONSTANTS.VERIFIER_SIDEBAR_WIDTH_PX,
   showVerificationFlow = true,
   verificationDocument,
-  configRepo,
-  baseUrl,
+  onRequestVerificationDocument,
 }: VerifierSidebarProps) {
   const verifierKey = useRef<number>(0)
-  const [triggerVerify, setTriggerVerify] = useState(0)
-  const [isVerifying, setIsVerifying] = useState(false)
   const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
@@ -62,12 +60,11 @@ export function VerifierSidebar({
         <div className="flex-1 overflow-y-auto">
           {isClient && (
             <VerificationCenter
-              key={`${verifierKey.current}-${triggerVerify}`}
+              key={verifierKey.current}
               isDarkMode={isDarkMode}
               showVerificationFlow={showVerificationFlow}
               verificationDocument={verificationDocument}
-              configRepo={configRepo}
-              baseUrl={baseUrl}
+              onRequestVerificationDocument={onRequestVerificationDocument}
             />
           )}
         </div>

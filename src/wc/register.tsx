@@ -1,6 +1,8 @@
 import * as React from 'react'
 import { createRoot, Root } from 'react-dom/client'
 import { VerificationCenter } from '../verifier'
+import type { VerificationCenterProps } from '../verifier'
+import type { VerificationDocument } from '../types/verification'
 import { VerifierHeader } from '../verifier-header'
 // Import the compiled CSS as a string and inject into shadow root
 // Vite will inline the file content with ?raw
@@ -18,13 +20,11 @@ import flowStyles from '../flow/flow.css?raw'
 type Props = {
   isDarkMode?: boolean
   showVerificationFlow?: boolean
-  // Avoid exporting a type dependency on 'tinfoil' in public d.ts
-  verificationDocument?: unknown
-  configRepo?: string
-  baseUrl?: string
+  verificationDocument?: VerificationDocument
+  onRequestVerificationDocument?:
+    VerificationCenterProps['onRequestVerificationDocument']
   mode?: 'embedded' | 'sidebar' | 'modal'
   open?: boolean
-  /** Only used when mode = 'sidebar' */
   sidebarWidth?: number
 }
 
@@ -39,7 +39,6 @@ function parseBool(v: unknown, fallback: boolean): boolean {
 }
 
 function readBoolAttr(el: Element, name: string, defaultValue: boolean): boolean {
-  // If attribute is present, evaluate its value; if absent, return default
   if (el.hasAttribute(name)) {
     return parseBool(el.getAttribute(name), true)
   }
@@ -50,9 +49,8 @@ function currentProps(el: VerificationCenterElement): Props {
   return {
     isDarkMode: readBoolAttr(el, 'is-dark-mode', true),
     showVerificationFlow: readBoolAttr(el, 'show-verification-flow', true),
-    configRepo: el.getAttribute('config-repo') ?? undefined,
-    baseUrl: el.getAttribute('base-url') ?? undefined,
     verificationDocument: el.verificationDocument,
+    onRequestVerificationDocument: el.onRequestVerificationDocument,
     mode: (el.getAttribute('mode') as Props['mode']) ?? 'embedded',
     open: readBoolAttr(el, 'open', false),
     sidebarWidth:
@@ -67,8 +65,6 @@ class VerificationCenterElement extends HTMLElement {
     return [
       'is-dark-mode',
       'show-verification-flow',
-      'config-repo',
-      'base-url',
       'mode',
       'open',
       'sidebar-width',
@@ -79,6 +75,7 @@ class VerificationCenterElement extends HTMLElement {
   private _container?: HTMLElement
   private _styleEl?: HTMLStyleElement
   private _verificationDocument?: Props['verificationDocument']
+  private _onRequestVerificationDocument?: Props['onRequestVerificationDocument']
   /** Local cache of last-rendered props to avoid unnecessary renders */
   private _lastProps?: Props
   /** Keydown handler for Escape-to-close when overlays are open */
@@ -94,6 +91,19 @@ class VerificationCenterElement extends HTMLElement {
 
   set verificationDocument(v: Props['verificationDocument'] | undefined) {
     this._verificationDocument = v
+    this._render()
+  }
+
+  get onRequestVerificationDocument():
+    | Props['onRequestVerificationDocument']
+    | undefined {
+    return this._onRequestVerificationDocument
+  }
+
+  set onRequestVerificationDocument(
+    handler: Props['onRequestVerificationDocument'] | undefined,
+  ) {
+    this._onRequestVerificationDocument = handler
     this._render()
   }
 
@@ -184,8 +194,8 @@ class VerificationCenterElement extends HTMLElement {
       !!prev &&
       prev.isDarkMode === props.isDarkMode &&
       prev.showVerificationFlow === props.showVerificationFlow &&
-      prev.configRepo === props.configRepo &&
-      prev.baseUrl === props.baseUrl &&
+      prev.onRequestVerificationDocument ===
+        props.onRequestVerificationDocument &&
       prev.mode === props.mode &&
       prev.open === props.open &&
       prev.sidebarWidth === props.sidebarWidth &&

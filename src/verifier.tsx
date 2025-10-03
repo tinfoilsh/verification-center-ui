@@ -1,60 +1,29 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { FaGithub } from 'react-icons/fa'
 import { LuExternalLink, LuRefreshCcwDot } from 'react-icons/lu'
-import {
-  loadVerifier,
-  type RunVerificationOptions,
-  type VerificationState as RunnerState,
-  type VerificationDocument,
-} from 'tinfoil'
+import type { VerificationDocument } from './types/verification'
+export type { VerificationDocument } from './types/verification'
 import { CollapsibleFlowDiagram, VerificationFlow } from './flow'
 import { MeasurementDiff, ProcessStep } from './steps'
 import VerificationStatus from './verification-status'
 
-/**
- * VERIFIER COMPONENT OVERVIEW
- * ==========================
- *
- * This component performs three critical security verifications:
- *
- * 1. REMOTE ATTESTATION (Enclave Verification):
- *    - Fetches attestation from the secure enclave
- *    - Validates signatures from hardware manufacturers (NVIDIA/AMD)
- *    - Extracts the measurement (hash) of code currently running in the enclave
- *
- * 2. CODE INTEGRITY (Source Code Verification):
- *    - Fetches the latest release hash from GitHub
- *    - Retrieves measurement from Sigstore transparency log
- *    - Verifies that GitHub Actions properly built and signed the code
- *
- * 3. CODE CONSISTENCY (Security Verification):
- *    - Compares the enclave measurement with the GitHub Actions/Sigstore measurement
- *    - Ensures the code running in the enclave matches the published and verified source
- *    - Prevents supply chain attacks by confirming code consistency
- *
- * VERIFICATION MODE:
- * This component implements "audit-time verification" - verifying enclave integrity
- * out-of-band rather than during the actual connection. This approach relies on
- * attestation transparency and certificate transparency logs to create an immutable
- * audit trail. Learn more: https://docs.tinfoil.sh/verification/comparison
- *
- * Verification uses the tinfoil package's verifier runner and step updates.
- */
-
-// No local WASM runtime or globals are required.
-
 // Props passed to the main Verification Center component
+type VerificationDocumentRequestHandler = () =>
+  | VerificationDocument
+  | null
+  | undefined
+  | Promise<VerificationDocument | null | undefined>
+
 export type VerificationCenterProps = {
   isDarkMode?: boolean
-  /** Whether to show the verification flow diagram. Defaults to true */
   showVerificationFlow?: boolean
-  /** Optional precomputed verification document from client */
   verificationDocument?: VerificationDocument
-  /** Override the GitHub config repository used during verification */
-  configRepo?: string
-  /** Override the enclave base URL/host used during verification */
-  baseUrl?: string
+  /**
+   * Optional callback invoked when the user clicks "Verify Again".
+   * Should return a fresh verification document (or a promise that resolves to one).
+   */
+  onRequestVerificationDocument?: VerificationDocumentRequestHandler
   /**
    * When true, the root container stretches to fill its parent (height: 100%).
    * For embedded usage in normal page flow, set false to allow natural height.
@@ -146,42 +115,79 @@ const getStepTitle = (
   }
 }
 
-// Digest is provided by the tinfoil runner; no manual GitHub fetch is needed.
+const createLoadingVerificationState = (): VerificationState => ({
+  code: {
+    status: 'loading',
+    measurements: undefined,
+    error: undefined,
+  },
+  runtime: {
+    status: 'loading',
+    measurements: undefined,
+    error: undefined,
+  },
+  security: {
+    status: 'loading',
+    error: undefined,
+  },
+})
 
-/**
- * Map the tinfoil runner state into the UI-friendly shape used by this component.
- * Ensures a single setState per update for better render performance and clarity.
- */
-function mapRunnerStateToUiState(s: RunnerState): VerificationState {
-  const securityStatus =
-    s.verification.status === 'success'
-      ? s.verification.securityVerified
-        ? 'success'
-        : 'error'
-      : (s.verification.status as VerificationStatus)
+function createUiStateFromDocument(
+  document: VerificationDocument,
+): VerificationState {
+  const codeMeasurements = document.codeMeasurement
+    ? { measurement: JSON.stringify(document.codeMeasurement) }
+    : undefined
+
+  const runtimeMeasurements = document.enclaveMeasurement?.measurement
+    ? {
+        measurement: JSON.stringify(document.enclaveMeasurement.measurement),
+        certificate: document.enclaveMeasurement.tlsPublicKeyFingerprint,
+      }
+    : undefined
 
   return {
     code: {
-      status: s.code.status as VerificationStatus,
-      measurements: s.code.measurement
-        ? { measurement: JSON.stringify(s.code.measurement) }
-        : undefined,
-      error: s.code.status === 'error' ? s.code.error : undefined,
+      status: codeMeasurements ? 'success' : 'error',
+      measurements: codeMeasurements,
+      error: codeMeasurements
+        ? undefined
+        : 'Verification document missing code measurement.',
     },
     runtime: {
-      status: s.runtime.status as VerificationStatus,
-      measurements: s.runtime.measurement
-        ? {
-            measurement: JSON.stringify(s.runtime.measurement),
-            certificate: s.runtime.tlsPublicKeyFingerprint,
-          }
-        : undefined,
-      error: s.runtime.status === 'error' ? s.runtime.error : undefined,
+      status: runtimeMeasurements ? 'success' : 'error',
+      measurements: runtimeMeasurements,
+      error: runtimeMeasurements
+        ? undefined
+        : 'Verification document missing runtime measurement.',
     },
     security: {
-      status: securityStatus as VerificationStatus,
-      error:
-        s.verification.status === 'error' ? s.verification.error : undefined,
+      status: document.match ? 'success' : 'error',
+      error: document.match
+        ? undefined
+        : 'Runtime and source measurements do not match.',
+    },
+  }
+}
+
+function createErrorVerificationState(
+  message: string,
+  previous?: VerificationState,
+): VerificationState {
+  return {
+    code: {
+      status: 'error',
+      measurements: previous?.code.measurements,
+      error: message,
+    },
+    runtime: {
+      status: 'error',
+      measurements: previous?.runtime.measurements,
+      error: message,
+    },
+    security: {
+      status: 'error',
+      error: message,
     },
   }
 }
@@ -190,32 +196,32 @@ export function VerificationCenter({
   isDarkMode = true,
   showVerificationFlow = true,
   verificationDocument,
-  configRepo,
-  baseUrl,
+  onRequestVerificationDocument,
   fillContainer = true,
 }: VerificationCenterProps) {
-  // Optimistic verifying flag to avoid UI flicker before first runner update
-  // Initialized to true because we auto-start verification on mount
-  const [optimisticVerifying, setOptimisticVerifying] = useState(true)
+  // Optimistic verifying flag to avoid UI flicker before first update from callback consumers
+  const [optimisticVerifying, setOptimisticVerifying] = useState(
+    () => !verificationDocument,
+  )
   const [isSafari, setIsSafari] = useState(false)
-  const [digest, setDigest] = useState<string | null>(null)
+  const [digest, setDigest] = useState<string | null>(
+    verificationDocument?.releaseDigest ?? null,
+  )
+  const [currentDocument, setCurrentDocument] = useState<
+    VerificationDocument | undefined
+  >(verificationDocument)
 
   const [verificationState, setVerificationState] = useState<VerificationState>(
-    createInitialVerificationState(),
+    verificationDocument
+      ? createUiStateFromDocument(verificationDocument)
+      : createInitialVerificationState(),
   )
+  const verificationStateRef = useRef(verificationState)
+  const hasRequestedInitialDocument = useRef(false)
 
-  const resolvedServerHost = useMemo(() => {
-    if (!baseUrl) {
-      return undefined
-    }
-
-    try {
-      const parsedUrl = new URL(baseUrl)
-      return parsedUrl.host || parsedUrl.hostname
-    } catch {
-      return baseUrl
-    }
-  }, [baseUrl])
+  useEffect(() => {
+    verificationStateRef.current = verificationState
+  }, [verificationState])
 
   // Derived status for the flow diagram; avoid duplicate state by deriving from verificationState
   // Kept as memoized values for clarity and to prevent re-computation on unrelated renders
@@ -246,103 +252,92 @@ export function VerificationCenter({
     [optimisticVerifying, flowStatus],
   )
 
-  const refreshButtonClasses = isDarkMode
-    ? 'border-border-strong bg-surface-chat text-content-primary hover:bg-surface-chat/80 disabled:cursor-not-allowed disabled:text-content-muted disabled:hover:bg-surface-chat'
-    : 'border-border-subtle bg-surface-card text-content-primary hover:bg-surface-card/80 disabled:cursor-not-allowed disabled:text-content-muted disabled:hover:bg-surface-card'
-
   const secondaryButtonClasses = isDarkMode
     ? 'border-border-subtle bg-transparent text-content-secondary hover:bg-surface-card/80'
     : 'border-border-subtle bg-surface-card text-content-secondary hover:bg-surface-card/80'
 
-  // All step updates are funneled through a single setState to keep the UI state consistent
-
-  const verifyAll = useCallback(
+  const requestVerificationDocument = useCallback(
     async (forceRefresh = false) => {
+      if (!onRequestVerificationDocument) {
+        return
+      }
+
+      const previousStateSnapshot = verificationStateRef.current
+
       setOptimisticVerifying(true)
 
       if (forceRefresh) {
-        setVerificationState(createInitialVerificationState())
+        setCurrentDocument(undefined)
         setDigest(null)
       }
 
-      const makeOptions = (
-        onUpdate: RunVerificationOptions['onUpdate'],
-      ): RunVerificationOptions => {
-        const options: RunVerificationOptions = { onUpdate }
-        if (configRepo) {
-          options.configRepo = configRepo
-        }
-        if (resolvedServerHost) {
-          options.serverURL = resolvedServerHost
-        }
-        return options
-      }
+      setVerificationState(createLoadingVerificationState())
 
       try {
-        const verifier = await loadVerifier()
-        const finalResult = await verifier.runVerification(
-          makeOptions((s: RunnerState) => {
-            setDigest(s.releaseDigest || null)
-            const uiState = mapRunnerStateToUiState(s)
-            setVerificationState(uiState)
-          }),
-        )
+        const result = await Promise.resolve(onRequestVerificationDocument())
 
-        setDigest(finalResult.releaseDigest || null)
-        setVerificationState(mapRunnerStateToUiState(finalResult))
+        if (result) {
+          setCurrentDocument(result)
+          setDigest(result.releaseDigest ?? null)
+          setVerificationState(createUiStateFromDocument(result))
+        } else {
+          setVerificationState(
+            createErrorVerificationState(
+              'No verification document returned.',
+              previousStateSnapshot,
+            ),
+          )
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Failed to refresh verification document.'
+        setVerificationState(
+          createErrorVerificationState(message, previousStateSnapshot),
+        )
       } finally {
         setOptimisticVerifying(false)
       }
     },
-    [configRepo, resolvedServerHost],
+    [onRequestVerificationDocument],
   )
 
   useEffect(() => {
-    // If a verification document is provided, hydrate UI state from it and skip running
     if (verificationDocument) {
+      setCurrentDocument(verificationDocument)
+      setDigest(verificationDocument.releaseDigest ?? null)
+      setVerificationState(createUiStateFromDocument(verificationDocument))
       setOptimisticVerifying(false)
-      setDigest(verificationDocument.releaseDigest || null)
-
-      const uiState: VerificationState = {
-        code: {
-          status: 'success',
-          measurements: verificationDocument.codeMeasurement
-            ? {
-                measurement: JSON.stringify(
-                  verificationDocument.codeMeasurement,
-                ),
-              }
-            : undefined,
-          error: undefined,
-        },
-        runtime: {
-          status: 'success',
-          measurements: verificationDocument.enclaveMeasurement?.measurement
-            ? {
-                measurement: JSON.stringify(
-                  verificationDocument.enclaveMeasurement.measurement,
-                ),
-                certificate:
-                  verificationDocument.enclaveMeasurement
-                    .tlsPublicKeyFingerprint,
-              }
-            : undefined,
-          error: undefined,
-        },
-        security: {
-          status: verificationDocument.match ? 'success' : 'error',
-          error: undefined,
-        },
+      hasRequestedInitialDocument.current = true
+    } else {
+      setCurrentDocument(undefined)
+      setDigest(null)
+      setVerificationState(createInitialVerificationState())
+      if (!onRequestVerificationDocument) {
+        setOptimisticVerifying(false)
       }
-      setVerificationState(uiState)
+    }
+  }, [verificationDocument, onRequestVerificationDocument])
+
+  useEffect(() => {
+    if (verificationDocument) {
       return
     }
 
-    // Otherwise run verification on mount
-    void verifyAll()
-  }, [verifyAll, verificationDocument])
+    if (
+      onRequestVerificationDocument &&
+      !hasRequestedInitialDocument.current
+    ) {
+      hasRequestedInitialDocument.current = true
+      void requestVerificationDocument()
+    }
+  }, [
+    verificationDocument,
+    onRequestVerificationDocument,
+    requestVerificationDocument,
+  ])
 
-  // Flow status and verifying spinner are derived via useMemo above
 
   useEffect(() => {
     // More robust Safari detection
@@ -415,12 +410,12 @@ export function VerificationCenter({
             <div className="flex items-start gap-3">
               <button
                 onClick={() => {
-                  if (!isCurrentlyVerifying) {
-                    // Force fresh verification
-                    void verifyAll(true)
+                  if (!isCurrentlyVerifying && onRequestVerificationDocument) {
+                    // Force a fresh verification when a callback is provided
+                    void requestVerificationDocument(true)
                   }
                 }}
-                disabled={isCurrentlyVerifying}
+                disabled={isCurrentlyVerifying || !onRequestVerificationDocument}
                 className={`flex items-center justify-center gap-2 whitespace-nowrap rounded-md border px-4 py-2 text-sm font-medium transition-colors ${secondaryButtonClasses}`}
                 style={{ minWidth: '140px', maxWidth: '180px' }}
               >
@@ -487,7 +482,7 @@ export function VerificationCenter({
             error={verificationState.code.error}
             measurements={verificationState.code.measurements}
             digestType="SOURCE"
-            verificationDocument={verificationDocument}
+            verificationDocument={currentDocument}
             githubHash={digest || undefined}
             isDarkMode={isDarkMode}
           />

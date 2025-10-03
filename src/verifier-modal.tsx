@@ -1,20 +1,18 @@
 import { Dialog, Transition } from '@headlessui/react'
 import { Fragment, useEffect, useState } from 'react'
 import { VerificationCenter } from './verifier'
+import type { VerificationCenterProps } from './verifier'
+import type { VerificationDocument } from './types/verification'
 import { VerifierHeader } from './verifier-header'
 
 type VerifierModalProps = {
   isOpen: boolean
   setIsOpen: (isOpen: boolean) => void
   isDarkMode?: boolean
-  /** Whether to display the verification flow diagram. Defaults to true */
   showVerificationFlow?: boolean
-  /** Optional precomputed verification document from client */
-  verificationDocument?: import('tinfoil').VerificationDocument
-  /** Override the GitHub config repository used during verification */
-  configRepo?: string
-  /** Override the enclave base URL/host used during verification */
-  baseUrl?: string
+  verificationDocument: VerificationDocument
+  onRequestVerificationDocument?:
+    VerificationCenterProps['onRequestVerificationDocument']
 }
 
 /**
@@ -29,8 +27,7 @@ export function VerifierModal({
   isDarkMode = true,
   showVerificationFlow = true,
   verificationDocument,
-  configRepo,
-  baseUrl,
+  onRequestVerificationDocument,
 }: VerifierModalProps) {
   const [isClient, setIsClient] = useState(false)
 
@@ -82,8 +79,9 @@ export function VerifierModal({
                       isDarkMode={isDarkMode}
                       showVerificationFlow={showVerificationFlow}
                       verificationDocument={verificationDocument}
-                      configRepo={configRepo}
-                      baseUrl={baseUrl}
+                      onRequestVerificationDocument={
+                        onRequestVerificationDocument
+                      }
                     />
                   )}
                 </div>

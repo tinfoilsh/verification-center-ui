@@ -48,7 +48,6 @@
     "react-icons": "*",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
-    "tinfoil": "^0.8.3",
     "typescript": "^5.9.2",
     "vite": "^5.4.9"
   },
