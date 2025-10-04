@@ -1,16 +1,12 @@
 import { LuChevronDown, LuTriangleAlert } from 'react-icons/lu'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useState, type ReactNode } from 'react'
-import { IoCodeSlashOutline } from 'react-icons/io5'
 import { StatusIcon } from './status-icon'
-
-// Brand assets used in the step details
+import { parseMeasurement, type MeasurementData } from '../utils/measurement'
 import type { VerificationDocument } from '../types/verification'
 import {
   amdIcon,
-  cpuIcon,
   githubIcon,
-  gpuIcon,
   intelIcon,
   nvidiaIcon,
   sigstoreIcon,
@@ -18,51 +14,6 @@ import {
 } from '../assets/base64'
 
 type DigestType = 'SOURCE' | 'RUNTIME' | 'CODE_INTEGRITY' | 'GENERIC'
-
-interface MeasurementData {
-  measurement?: string
-  certificate?: string
-}
-
-/**
- * Extract a compact, human-readable measurement value from various inputs.
- * Accepts raw strings or objects with a `measurement` JSON payload.
- */
-const extractMeasurement = (data: MeasurementData | string): string => {
-  if (typeof data === 'string') {
-    // Check if it's a JSON string that needs parsing
-    try {
-      const parsed = JSON.parse(data.replace(/^"|"$/g, ''))
-      if (
-        parsed.registers &&
-        Array.isArray(parsed.registers) &&
-        parsed.registers.length > 0
-      ) {
-        return parsed.registers[0]
-      }
-    } catch {
-      // Not JSON, return as is
-    }
-    return data.replace(/^"|"$/g, '')
-  }
-  if (typeof data === 'object' && data?.measurement) {
-    // Check if measurement contains JSON
-    try {
-      const parsed = JSON.parse(data.measurement)
-      if (
-        parsed.registers &&
-        Array.isArray(parsed.registers) &&
-        parsed.registers.length > 0
-      ) {
-        return parsed.registers[0]
-      }
-    } catch {
-      // Not JSON, return as is
-    }
-    return data.measurement
-  }
-  return JSON.stringify(data, null, 2)
-}
 
 /**
  * Map a digestType into a title and subtitle for the measurement block.
@@ -113,9 +64,9 @@ const itemVariants = {
 type ProcessStepProps = {
   title: string
   description: string
-  status: 'pending' | 'loading' | 'success' | 'error'
+  status: 'pending' | 'success' | 'error'
   error?: string
-  measurements?: MeasurementData | string
+  measurement?: MeasurementData | string
   technicalDetails?: string
   children?: ReactNode
   digestType?: DigestType
@@ -129,7 +80,7 @@ export function ProcessStep({
   description,
   status,
   error,
-  measurements,
+  measurement,
   technicalDetails,
   children,
   digestType,
@@ -237,61 +188,52 @@ export function ProcessStep({
                 </motion.div>
               )}
 
-              {measurements && (
-                <motion.div variants={itemVariants}>
-                  <div className="mb-2 flex items-start justify-between">
-                    <h4 className="text-sm font-medium text-content-primary">
-                      {label.title}
-                      {label.subtitle && (
-                        <span
-                          className="block text-xs font-normal text-content-secondary"
-                        >
-                          {label.subtitle}
+              {measurement && (() => {
+                const parsed = parseMeasurement(measurement)
+                return parsed ? (
+                  <motion.div variants={itemVariants}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-content-primary">
+                        {label.title}
+                        {label.subtitle && (
+                          <span className="block text-xs font-normal text-content-secondary">
+                            {label.subtitle}
+                          </span>
+                        )}
+                      </h4>
+                      {parsed && (
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                          isDarkMode
+                            ? 'bg-blue-500/10 text-blue-300'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {parsed.type}
                         </span>
                       )}
-                    </h4>
-                    <div className="flex items-center gap-2">
-                      {digestType === 'SOURCE' ? (
-                        <IoCodeSlashOutline
-                          className="text-content-muted"
-                          size={20}
-                        />
-                      ) : digestType === 'RUNTIME' ? (
-                        <>
-                          <img
-                            src={cpuIcon}
-                            alt="CPU"
-                            width={15}
-                            height={15}
-                            className={`${isDarkMode ? 'invert' : ''} opacity-70`}
-                          />
-                          <span
-                            className="text-sm text-content-muted"
-                          >
-                            +
-                          </span>
-                          <img
-                            src={gpuIcon}
-                            alt="GPU"
-                            width={26}
-                            height={13}
-                            className={`${isDarkMode ? 'invert' : ''} opacity-70`}
-                          />
-                        </>
-                      ) : null}
                     </div>
-                  </div>
-                  <pre
-                    className={`overflow-x-auto whitespace-pre-wrap break-all rounded-lg border p-4 text-sm transition-colors ${
-                      isDarkMode
-                        ? 'border-border-subtle bg-surface-chat text-content-primary'
-                        : 'border-border-subtle bg-surface-card text-content-primary'
-                    } ${status === 'success' ? 'border-emerald-500/50' : ''}`}
-                  >
-                    {extractMeasurement(measurements)}
-                  </pre>
-                </motion.div>
-              )}
+                    <div className="max-h-[200px] overflow-auto">
+                      {parsed && (
+                        <div className="space-y-2">
+                          {parsed.registers.map((register, i) => (
+                            <div
+                              key={i}
+                              className={`overflow-x-auto rounded-lg border p-3 transition-colors ${
+                                isDarkMode
+                                  ? 'border-border-subtle bg-surface-chat text-content-primary'
+                                  : 'border-border-subtle bg-surface-card text-content-primary'
+                              } ${status === 'success' ? 'border-emerald-500/50' : ''}`}
+                            >
+                              <div className="break-all font-mono text-sm">
+                                {register}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                ) : null
+              })()}
 
               {isRemoteAttestation && (
                 <motion.div variants={itemVariants} className="mt-3">

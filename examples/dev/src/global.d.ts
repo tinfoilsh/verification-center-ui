@@ -1,7 +1,6 @@
-declare module '*.css'
-
-// Allow using the custom element in TSX without type errors
 import type React from 'react'
+
+declare module '*.css'
 
 declare global {
   namespace JSX {
@@ -16,6 +15,16 @@ declare global {
         open?: boolean | string
         'sidebar-width'?: number | string
       }
+      'tinfoil-badge': React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      > & {
+        state?: 'idle' | 'loading' | 'success' | 'error'
+        'error-message'?: string
+        'is-dark-mode'?: boolean | string
+      }
     }
   }
 }
+
+export {}

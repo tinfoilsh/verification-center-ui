@@ -1,7 +1,7 @@
 import { LuCheck, LuX } from 'react-icons/lu'
 
 type StatusIconProps = {
-  status: 'pending' | 'loading' | 'success' | 'error'
+  status: 'pending' | 'success' | 'error'
 }
 
 export function StatusIcon({ status }: StatusIconProps) {
@@ -13,12 +13,6 @@ export function StatusIcon({ status }: StatusIconProps) {
     error: {
       bg: 'bg-red-500',
       icon: <LuX className="h-[8.8px] w-[8.8px] text-white" />,
-    },
-    loading: {
-      bg: 'bg-blue-500',
-      icon: (
-        <div className="h-[8.8px] w-[8.8px] animate-spin rounded-full border border-white border-t-transparent" />
-      ),
     },
     pending: {
       bg: 'bg-gray-500',

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-// Import the Web Component bundle to define the custom element globally
 import '@tinfoilsh/verification-center-ui'
 import { mockFailureDocument, mockSuccessDocument } from './fake-document'
 
@@ -44,11 +43,31 @@ export function App() {
       el.addEventListener('close', onClose)
       // Keep document in sync on mount
       el.verificationDocument = verificationDocument
-      el.onRequestVerificationDocument = async () => verificationDocument
+      el.onRequestVerificationDocument = async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        return verificationDocument
+      }
     }
   }, [verificationDocument])
 
   const onClose = useCallback(() => setIsVerifierOpen(false), [])
+
+  const badgeRef = useRef<any>(null)
+  const setBadgeRef = useCallback((el: any) => {
+    badgeRef.current = el
+    if (el) {
+      el.verificationDocument = verificationDocument
+      el.onClick = () => {
+        setIsVerifierOpen(true)
+      }
+    }
+  }, [verificationDocument])
+
+  useEffect(() => {
+    if (badgeRef.current) {
+      badgeRef.current.verificationDocument = verificationDocument
+    }
+  }, [verificationDocument])
 
   return (
     <div className={appClassName}>
@@ -133,12 +152,17 @@ export function App() {
               />
               Embedded
             </label>
-            
           </div>
+
         </section>
       </aside>
 
-      <main className="app__main">Webpage</main>
+      <main className="app__main">
+        <div style={{ padding: '20px' }}>
+          <h2>Tinfoil Badge</h2>
+          <tinfoil-badge ref={setBadgeRef as any} />
+        </div>
+      </main>
 
       {/* Always render the element; toggle visibility via `open` for overlays */}
       <tinfoil-verification-center

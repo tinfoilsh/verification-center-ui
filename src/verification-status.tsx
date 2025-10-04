@@ -2,16 +2,13 @@ import { LuTriangleAlert } from 'react-icons/lu'
 
 // Vendor marks for attestation providers displayed on success
 import { amdIcon, intelIcon, nvidiaIcon } from './assets/base64'
-
-type VerificationState = {
-  [key: string]: {
-    status: string
-    error?: string
-  }
-}
+import type { VerificationSummaryStatus } from './types/verification'
 
 type VerificationStatusProps = {
-  verificationState: VerificationState
+  summary: {
+    status: VerificationSummaryStatus
+    message?: string
+  }
   isDarkMode?: boolean
 }
 
@@ -19,22 +16,9 @@ type VerificationStatusProps = {
  * VerificationStatus
  * Single-container banner that smoothly transitions colors between states.
  */
-function VerificationStatus({
-  verificationState,
-  isDarkMode = true,
-}: VerificationStatusProps) {
-  const hasErrors = Object.values(verificationState).some(
-    (state) => state.status === 'error' || state.error,
-  )
-  const allSuccess = Object.values(verificationState).every(
-    (state) => state.status === 'success',
-  )
-
-  const status: 'error' | 'success' | 'progress' = hasErrors
-    ? 'error'
-    : allSuccess
-      ? 'success'
-      : 'progress'
+function VerificationStatus({ summary, isDarkMode = true }: VerificationStatusProps) {
+  const status = summary.status
+  const message = summary.message
 
   const containerColors =
     status === 'error'
@@ -46,25 +30,34 @@ function VerificationStatus({
           ? 'bg-emerald-500/10 text-emerald-400'
           : 'bg-emerald-50 text-emerald-600'
         : isDarkMode
-          ? 'bg-blue-500/10 text-blue-400'
-          : 'bg-blue-50 text-blue-600'
+          ? 'bg-gray-800/50 text-gray-300'
+          : 'bg-gray-100 text-gray-700'
+
+  const resolvedStatus: VerificationSummaryStatus = status
+  const resolvedMessage =
+    message ||
+    (resolvedStatus === 'error'
+      ? 'Verification failed. Please check the errors.'
+      : resolvedStatus === 'success'
+        ? 'This AI is running inside a secure enclave.'
+        : 'Verification in progress. This process ensures your data remains secure and private by confirming code integrity and runtime environment isolation.')
 
   return (
     <div
       className={`mt-0 flex min-h-16 items-center gap-2 p-3 transition-colors duration-300 ${containerColors}`}
     >
-      {status === 'error' && (
+      {resolvedStatus === 'error' && (
         <>
           <LuTriangleAlert className="h-5 w-5 flex-shrink-0" />
           <p className="overflow-hidden break-words break-all text-sm">
-            Verification failed. Please check the errors.
+            {resolvedMessage}
           </p>
         </>
       )}
 
-      {status === 'success' && (
+      {resolvedStatus === 'success' && (
         <div className="flex flex-col gap-1">
-          <p className="text-sm">This AI is running inside a secure enclave.</p>
+          <p className="text-sm">{resolvedMessage}</p>
           <div
             className={`flex items-center gap-2 opacity-70 ${
               isDarkMode ? 'text-white' : 'text-gray-700'
@@ -98,12 +91,8 @@ function VerificationStatus({
         </div>
       )}
 
-      {status === 'progress' && (
-        <p className="break-words text-sm">
-          Verification in progress. This process ensures your data remains
-          secure and private by confirming code integrity and runtime
-          environment isolation.
-        </p>
+      {resolvedStatus === 'progress' && (
+        <p className="break-words text-sm">{resolvedMessage}</p>
       )}
     </div>
   )

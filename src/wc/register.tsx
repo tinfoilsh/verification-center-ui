@@ -426,3 +426,5 @@ declare global {
     'tinfoil-verification-center': VerificationCenterElement
   }
 }
+
+export * from './tinfoil-badge'

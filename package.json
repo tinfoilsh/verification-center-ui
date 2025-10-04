@@ -1,6 +1,6 @@
 {
   "name": "@tinfoilsh/verification-center-ui",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Self-contained Web Component for the Tinfoil verification center UI",
   "main": "dist/wc/tinfoil-wc.es.js",
   "module": "dist/wc/tinfoil-wc.es.js",
@@ -33,6 +33,7 @@
     "dev": "vite --config examples/dev/vite.config.mts"
   },
   "devDependencies": {
+    "@emotion/is-prop-valid": "^1.4.0",
     "@headlessui/react": "^2.1.7",
     "@tailwindcss/container-queries": "^0.1.1",
     "@tailwindcss/typography": "^0.5.16",
