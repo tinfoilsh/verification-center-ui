@@ -2,6 +2,7 @@ import * as React from 'react'
 import { createRoot, Root } from 'react-dom/client'
 import { IoShieldCheckmarkOutline } from 'react-icons/io5'
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
+import { LuShieldAlert } from 'react-icons/lu'
 import clsx from 'clsx'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - Vite's ?raw loader returns string
@@ -56,6 +57,9 @@ function TinfoilBadgeComponent({ state = 'idle', errorMessage, isDarkMode = true
   const icon = React.useMemo(() => {
     if (computedState === 'loading') {
       return React.createElement(AiOutlineLoading3Quarters, { className: 'h-4 w-4 animate-spin' })
+    }
+    if (computedState === 'error') {
+      return React.createElement(LuShieldAlert, { className: 'h-4 w-4' })
     }
     return React.createElement(IoShieldCheckmarkOutline, { className: 'h-4 w-4' })
   }, [computedState])
