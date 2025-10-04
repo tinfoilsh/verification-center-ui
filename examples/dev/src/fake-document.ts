@@ -21,96 +21,49 @@ const runtimeMeasurement = {
 const runtimeFingerprint =
   'sha256:4dcec7f452e67341f72c7414973ab0c0f4649fa748ba1fd0fda92b3ad2562e8c'
 
-const sharedMetadata = {
+export const mockSuccessDocument: VerificationDocument = {
   configRepo: 'tinfoilsh/example-configs',
   enclaveHost: 'https://demo.enclave.tinfoil.sh',
   releaseDigest:
     'sha256:74e1b91b4867d4b0fc3a1e9bc82a999aa1dd96c7fa968eefc8c9a7bd403f2f00',
-}
-
-const sharedUi = {
+  codeMeasurement: sourceMeasurement,
+  enclaveMeasurement: {
+    measurement: runtimeMeasurement,
+    tlsPublicKeyFingerprint: runtimeFingerprint,
+  },
+  securityVerified: true,
   steps: {
-    runtime: {
-      status: 'success' as const,
-      measurement: {
-        measurement: JSON.stringify(runtimeMeasurement),
-        certificate: runtimeFingerprint,
-      },
-      attestation: {
-        measurement: runtimeMeasurement,
-        tlsPublicKeyFingerprint: runtimeFingerprint,
-      },
-    },
-    code: {
-      status: 'success' as const,
-      measurement: JSON.stringify(sourceMeasurement),
-      githubHash: sharedMetadata.releaseDigest,
-      sourceMeasurement,
-    },
+    fetchDigest: { status: 'success' },
+    verifyCode: { status: 'success' },
+    verifyEnclave: { status: 'success' },
+    compareMeasurements: { status: 'success' },
   },
 }
-
-const baseDocument: VerificationDocument = {
-  ...sharedMetadata,
-  ui: {
-    summary: {
-      status: 'success',
-      message: 'This AI is running inside a secure enclave.',
-    },
-    flowStatus: 'success',
-    steps: {
-      ...sharedUi.steps,
-      security: {
-        status: 'success',
-        comparison: {
-          isVerified: true,
-          sourceMeasurements: JSON.stringify(sourceMeasurement),
-          runtimeMeasurements: {
-            measurement: JSON.stringify(runtimeMeasurement),
-            certificate: runtimeFingerprint,
-          },
-        },
-      },
-    },
-  },
-  rawPayload: {
-    sourceMeasurement,
-    runtimeMeasurement,
-    runtimeFingerprint,
-  },
-}
-
-export const mockSuccessDocument: VerificationDocument = baseDocument
 
 export const mockFailureDocument: VerificationDocument = {
-  ...sharedMetadata,
-  ui: {
-    summary: {
-      status: 'error',
+  configRepo: 'tinfoilsh/example-configs',
+  enclaveHost: 'https://demo.enclave.tinfoil.sh',
+  releaseDigest:
+    'sha256:74e1b91b4867d4b0fc3a1e9bc82a999aa1dd96c7fa968eefc8c9a7bd403f2f00',
+  codeMeasurement: sourceMeasurement,
+  enclaveMeasurement: {
+    measurement: {
+      ...runtimeMeasurement,
+      registers: [
+        '1111111111111111111111111111111111111111111111111111111111111111',
+        ...runtimeMeasurement.registers.slice(1),
+      ],
     },
-    flowStatus: 'error',
-    steps: {
-      ...sharedUi.steps,
-      security: {
-        status: 'error',
-        error: 'Runtime and source measurements do not match.',
-        comparison: {
-          isVerified: false,
-          sourceMeasurements: JSON.stringify(sourceMeasurement),
-          runtimeMeasurements: JSON.stringify({
-            ...runtimeMeasurement,
-            registers: [
-              '1111111111111111111111111111111111111111111111111111111111111111',
-              ...runtimeMeasurement.registers.slice(1),
-            ],
-          }),
-        },
-      },
-    },
+    tlsPublicKeyFingerprint: runtimeFingerprint,
   },
-  rawPayload: {
-    sourceMeasurement,
-    runtimeMeasurement,
-    runtimeFingerprint,
+  securityVerified: false,
+  steps: {
+    fetchDigest: { status: 'success' },
+    verifyCode: { status: 'success' },
+    verifyEnclave: { status: 'success' },
+    compareMeasurements: {
+      status: 'failed',
+      error: 'Runtime and source measurements do not match.',
+    },
   },
 }
