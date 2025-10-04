@@ -30,8 +30,8 @@ function VerificationStatus({ summary, isDarkMode = true }: VerificationStatusPr
           ? 'bg-emerald-500/10 text-emerald-400'
           : 'bg-emerald-50 text-emerald-600'
         : isDarkMode
-          ? 'bg-blue-500/10 text-blue-400'
-          : 'bg-blue-50 text-blue-600'
+          ? 'bg-gray-800/50 text-gray-300'
+          : 'bg-gray-100 text-gray-700'
 
   const resolvedStatus: VerificationSummaryStatus = status
   const resolvedMessage =
