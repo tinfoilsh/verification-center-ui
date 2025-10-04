@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { FaGithub } from 'react-icons/fa'
 import { LuExternalLink, LuRefreshCcwDot } from 'react-icons/lu'
-import type { VerificationDocument } from './types/verification'
+import type {
+  VerificationDocument,
+  VerificationStepStatus,
+  VerificationUiState,
+} from './types/verification'
 export type { VerificationDocument } from './types/verification'
 import { CollapsibleFlowDiagram, VerificationFlow } from './flow'
 import { MeasurementDiff, ProcessStep } from './steps'
@@ -32,46 +36,81 @@ export type VerificationCenterProps = {
   fillContainer?: boolean
 }
 
-type VerificationStatus = 'error' | 'pending' | 'loading' | 'success'
-
-interface MeasurementData {
-  measurement?: string
-  certificate?: string
-}
-
-type VerificationState = {
-  code: {
-    status: VerificationStatus
-    measurements?: MeasurementData
-    error?: string
-  }
-  runtime: {
-    status: VerificationStatus
-    measurements?: MeasurementData // Changed to MeasurementData to include certificate
-    error?: string
-  }
-  security: {
-    status: VerificationStatus
-    error?: string
-  }
-}
-
-const createInitialVerificationState = (): VerificationState => ({
-  code: {
-    status: 'pending',
-    measurements: undefined,
-    error: undefined,
+const createInitialUiState = (): VerificationUiState => ({
+  summary: {
+    status: 'progress',
+    message: 'Awaiting verification document.',
   },
-  runtime: {
-    status: 'pending',
-    measurements: undefined,
-    error: undefined,
-  },
-  security: {
-    status: 'pending',
-    error: undefined,
+  flowStatus: 'idle',
+  steps: {
+    runtime: { status: 'pending' },
+    code: { status: 'pending' },
+    security: { status: 'pending' },
   },
 })
+
+const createLoadingUiState = (
+  previous?: VerificationUiState,
+): VerificationUiState => {
+  const base = previous ?? createInitialUiState()
+
+  return {
+    summary: {
+      status: 'progress',
+      message: 'Refreshing verification document...',
+    },
+    flowStatus: 'verifying',
+    steps: {
+      runtime: {
+        ...base.steps.runtime,
+        status: 'loading',
+        error: undefined,
+      },
+      code: {
+        ...base.steps.code,
+        status: 'loading',
+        error: undefined,
+      },
+      security: {
+        ...base.steps.security,
+        status: 'loading',
+        error: undefined,
+      },
+    },
+  }
+}
+
+const createErrorUiState = (
+  message: string,
+  previous?: VerificationUiState,
+): VerificationUiState => {
+  const base = previous ?? createInitialUiState()
+
+  return {
+    summary: {
+      status: 'error',
+      message,
+    },
+    flowStatus: 'error',
+    steps: {
+      runtime: {
+        ...base.steps.runtime,
+        status: 'error',
+        error: message,
+      },
+      code: {
+        ...base.steps.code,
+        status: 'error',
+        error: message,
+      },
+      security: {
+        ...base.steps.security,
+        status: 'error',
+        error: message,
+      },
+    },
+  }
+}
 
 type VerificationStepKey =
   | 'CODE_INTEGRITY'
@@ -101,7 +140,7 @@ const VERIFICATION_STEPS = {
 
 const getStepTitle = (
   stepKey: VerificationStepKey,
-  status: VerificationStatus,
+  status: VerificationStepStatus,
 ) => {
   const step = VERIFICATION_STEPS[stepKey]
 
@@ -115,81 +154,16 @@ const getStepTitle = (
   }
 }
 
-const createLoadingVerificationState = (): VerificationState => ({
-  code: {
-    status: 'loading',
-    measurements: undefined,
-    error: undefined,
-  },
-  runtime: {
-    status: 'loading',
-    measurements: undefined,
-    error: undefined,
-  },
-  security: {
-    status: 'loading',
-    error: undefined,
-  },
-})
-
 function createUiStateFromDocument(
   document: VerificationDocument,
-): VerificationState {
-  const codeMeasurements = document.codeMeasurement
-    ? { measurement: JSON.stringify(document.codeMeasurement) }
-    : undefined
-
-  const runtimeMeasurements = document.enclaveMeasurement?.measurement
-    ? {
-        measurement: JSON.stringify(document.enclaveMeasurement.measurement),
-        certificate: document.enclaveMeasurement.tlsPublicKeyFingerprint,
-      }
-    : undefined
-
-  return {
-    code: {
-      status: codeMeasurements ? 'success' : 'error',
-      measurements: codeMeasurements,
-      error: codeMeasurements
-        ? undefined
-        : 'Verification document missing code measurement.',
-    },
-    runtime: {
-      status: runtimeMeasurements ? 'success' : 'error',
-      measurements: runtimeMeasurements,
-      error: runtimeMeasurements
-        ? undefined
-        : 'Verification document missing runtime measurement.',
-    },
-    security: {
-      status: document.match ? 'success' : 'error',
-      error: document.match
-        ? undefined
-        : 'Runtime and source measurements do not match.',
-    },
+): VerificationUiState {
+  if (!document.ui) {
+    return createErrorUiState(
+      'Verification document missing precomputed UI state.',
+    )
   }
-}
 
-function createErrorVerificationState(
-  message: string,
-  previous?: VerificationState,
-): VerificationState {
-  return {
-    code: {
-      status: 'error',
-      measurements: previous?.code.measurements,
-      error: message,
-    },
-    runtime: {
-      status: 'error',
-      measurements: previous?.runtime.measurements,
-      error: message,
-    },
-    security: {
-      status: 'error',
-      error: message,
-    },
-  }
+  return document.ui
 }
 
 export function VerificationCenter({
@@ -205,56 +179,37 @@ export function VerificationCenter({
   )
   const [isSafari, setIsSafari] = useState(false)
   const [digest, setDigest] = useState<string | null>(
-    verificationDocument?.releaseDigest ?? null,
+    verificationDocument?.releaseDigest ??
+      verificationDocument?.ui?.steps.code.githubHash ??
+      null,
   )
   const [currentDocument, setCurrentDocument] = useState<
     VerificationDocument | undefined
   >(verificationDocument)
 
-  const [verificationState, setVerificationState] = useState<VerificationState>(
+  const [uiState, setUiState] = useState<VerificationUiState>(
     verificationDocument
       ? createUiStateFromDocument(verificationDocument)
-      : createInitialVerificationState(),
+      : createInitialUiState(),
   )
-  const verificationStateRef = useRef(verificationState)
+  const uiStateRef = useRef(uiState)
   const hasRequestedInitialDocument = useRef(false)
 
   useEffect(() => {
-    verificationStateRef.current = verificationState
-  }, [verificationState])
+    uiStateRef.current = uiState
+  }, [uiState])
 
-  // Derived status for the flow diagram; avoid duplicate state by deriving from verificationState
-  // Kept as memoized values for clarity and to prevent re-computation on unrelated renders
-  const flowStatus = useMemo<'idle' | 'verifying' | 'success' | 'error'>(() => {
-    const isAnyLoading =
-      verificationState.code.status === 'loading' ||
-      verificationState.runtime.status === 'loading' ||
-      verificationState.security.status === 'loading'
+  const flowStatus = uiState.flowStatus
 
-    const isAnyError =
-      verificationState.code.status === 'error' ||
-      verificationState.runtime.status === 'error' ||
-      verificationState.security.status === 'error'
-
-    const isAllSuccess =
-      verificationState.code.status === 'success' &&
-      verificationState.runtime.status === 'success' &&
-      verificationState.security.status === 'success'
-
-    if (isAnyLoading) return 'verifying'
-    if (isAllSuccess) return 'success'
-    if (isAnyError) return 'error'
-    return 'idle'
-  }, [verificationState])
-
-  const isCurrentlyVerifying = useMemo(
-    () => optimisticVerifying || flowStatus === 'verifying',
-    [optimisticVerifying, flowStatus],
-  )
+  const isCurrentlyVerifying = optimisticVerifying || flowStatus === 'verifying'
 
   const secondaryButtonClasses = isDarkMode
     ? 'border-border-subtle bg-transparent text-content-secondary hover:bg-surface-card/80'
     : 'border-border-subtle bg-surface-card text-content-secondary hover:bg-surface-card/80'
+
+  const { runtime, code, security } = uiState.steps
+  const comparison = security.comparison
+  const githubHash = code.githubHash ?? digest ?? undefined
 
   const requestVerificationDocument = useCallback(
     async (forceRefresh = false) => {
@@ -262,7 +217,7 @@ export function VerificationCenter({
         return
       }
 
-      const previousStateSnapshot = verificationStateRef.current
+      const previousStateSnapshot = uiStateRef.current
 
       setOptimisticVerifying(true)
 
@@ -271,18 +226,22 @@ export function VerificationCenter({
         setDigest(null)
       }
 
-      setVerificationState(createLoadingVerificationState())
+      setUiState((previous) => createLoadingUiState(previous))
 
       try {
         const result = await Promise.resolve(onRequestVerificationDocument())
 
         if (result) {
           setCurrentDocument(result)
-          setDigest(result.releaseDigest ?? null)
-          setVerificationState(createUiStateFromDocument(result))
+          setDigest(
+            result.releaseDigest ??
+              result.ui?.steps.code.githubHash ??
+              null,
+          )
+          setUiState(createUiStateFromDocument(result))
         } else {
-          setVerificationState(
-            createErrorVerificationState(
+          setUiState(
+            createErrorUiState(
               'No verification document returned.',
               previousStateSnapshot,
             ),
@@ -293,8 +252,8 @@ export function VerificationCenter({
           error instanceof Error
             ? error.message
             : 'Failed to refresh verification document.'
-        setVerificationState(
-          createErrorVerificationState(message, previousStateSnapshot),
+        setUiState(
+          createErrorUiState(message, previousStateSnapshot),
         )
       } finally {
         setOptimisticVerifying(false)
@@ -306,14 +265,18 @@ export function VerificationCenter({
   useEffect(() => {
     if (verificationDocument) {
       setCurrentDocument(verificationDocument)
-      setDigest(verificationDocument.releaseDigest ?? null)
-      setVerificationState(createUiStateFromDocument(verificationDocument))
+      setDigest(
+        verificationDocument.releaseDigest ??
+          verificationDocument.ui?.steps.code.githubHash ??
+          null,
+      )
+      setUiState(createUiStateFromDocument(verificationDocument))
       setOptimisticVerifying(false)
       hasRequestedInitialDocument.current = true
     } else {
       setCurrentDocument(undefined)
       setDigest(null)
-      setVerificationState(createInitialVerificationState())
+      setUiState(createInitialUiState())
       if (!onRequestVerificationDocument) {
         setOptimisticVerifying(false)
       }
@@ -364,7 +327,7 @@ export function VerificationCenter({
       {/* Fixed Verification Banner */}
       <div className="flex-none">
         <VerificationStatus
-          verificationState={verificationState}
+          summary={uiState.summary}
           isDarkMode={isDarkMode}
         />
       </div>
@@ -462,12 +425,12 @@ export function VerificationCenter({
           <ProcessStep
             title={getStepTitle(
               'REMOTE_ATTESTATION',
-              verificationState.runtime.status,
+              runtime.status,
             )}
             description="Verifies the secure hardware environment. The response consists of a signed measurement by a combination of NVIDIA, AMD, and Intel certifying the enclave environment and the digest of the binary (i.e., code) actively running inside it."
-            status={verificationState.runtime.status}
-            error={verificationState.runtime.error}
-            measurements={verificationState.runtime.measurements}
+            status={runtime.status}
+            error={runtime.error}
+            measurement={runtime.measurement}
             digestType="RUNTIME"
             isDarkMode={isDarkMode}
           />
@@ -475,38 +438,42 @@ export function VerificationCenter({
           <ProcessStep
             title={getStepTitle(
               'CODE_INTEGRITY',
-              verificationState.code.status,
+              code.status,
             )}
             description="Verifies that the source code published publicly by Tinfoil on GitHub was correctly built through GitHub Actions and that the resulting binary is available on the Sigstore transparency log."
-            status={verificationState.code.status}
-            error={verificationState.code.error}
-            measurements={verificationState.code.measurements}
+            status={code.status}
+            error={code.error}
+            measurement={code.measurement}
             digestType="SOURCE"
             verificationDocument={currentDocument}
-            githubHash={digest || undefined}
+            githubHash={githubHash}
             isDarkMode={isDarkMode}
           />
 
           <ProcessStep
             title={getStepTitle(
               'CODE_CONSISTENCY',
-              verificationState.security.status,
+              security.status,
             )}
             description="Verifies that the binary built from the source code matches the binary running in the secure enclave by comparing digests from the enclave and the committed digest from the transparency log."
-            status={verificationState.security.status}
-            error={verificationState.security.error}
+            status={security.status}
+            error={security.error}
             digestType="CODE_INTEGRITY"
             isDarkMode={isDarkMode}
           >
-            {verificationState.code.measurements &&
-              verificationState.runtime.measurements && (
-                <MeasurementDiff
-                  sourceMeasurements={verificationState.code.measurements}
-                  runtimeMeasurements={verificationState.runtime.measurements}
-                  isVerified={verificationState.security.status === 'success'}
-                  isDarkMode={isDarkMode}
-                />
-              )}
+            {comparison && (
+              <MeasurementDiff
+                sourceMeasurements={
+                  comparison.sourceMeasurements ?? code.measurement ?? ''
+                }
+                runtimeMeasurements={
+                  comparison.runtimeMeasurements ?? runtime.measurement ?? ''
+                }
+                isVerified={comparison.isVerified}
+                isDarkMode={isDarkMode}
+                showStatusBanner={comparison.isVerified}
+              />
+            )}
           </ProcessStep>
         </div>
         {isSafari && <div className="h-[30px]" aria-hidden="true" />}{' '}

@@ -115,7 +115,7 @@ type ProcessStepProps = {
   description: string
   status: 'pending' | 'loading' | 'success' | 'error'
   error?: string
-  measurements?: MeasurementData | string
+  measurement?: MeasurementData | string
   technicalDetails?: string
   children?: ReactNode
   digestType?: DigestType
@@ -129,7 +129,7 @@ export function ProcessStep({
   description,
   status,
   error,
-  measurements,
+  measurement,
   technicalDetails,
   children,
   digestType,
@@ -237,7 +237,7 @@ export function ProcessStep({
                 </motion.div>
               )}
 
-              {measurements && (
+              {measurement && (
                 <motion.div variants={itemVariants}>
                   <div className="mb-2 flex items-start justify-between">
                     <h4 className="text-sm font-medium text-content-primary">
@@ -288,7 +288,7 @@ export function ProcessStep({
                         : 'border-border-subtle bg-surface-card text-content-primary'
                     } ${status === 'success' ? 'border-emerald-500/50' : ''}`}
                   >
-                    {extractMeasurement(measurements)}
+                    {extractMeasurement(measurement)}
                   </pre>
                 </motion.div>
               )}

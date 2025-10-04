@@ -10,6 +10,7 @@ type MeasurementDiffProps = {
   runtimeMeasurements: MeasurementData | string
   isVerified: boolean
   isDarkMode?: boolean
+  showStatusBanner?: boolean
 }
 
 // Utility function to extract measurement value
@@ -52,29 +53,32 @@ export function MeasurementDiff({
   runtimeMeasurements,
   isVerified,
   isDarkMode = true,
+  showStatusBanner = true,
 }: MeasurementDiffProps) {
   return (
     <div>
-      <div
-        className={`mb-4 flex items-center gap-2 rounded-lg p-3 transition-colors ${
-          isVerified
-            ? isDarkMode
-              ? 'bg-emerald-500/10 text-emerald-300'
-              : 'bg-emerald-50 text-emerald-600'
-            : isDarkMode
-              ? 'bg-red-500/10 text-red-300'
-              : 'bg-red-50 text-red-600'
-        }`}
-      >
-        {isVerified ? (
-          <LuCheck className="h-5 w-5" />
-        ) : (
-          <LuTriangleAlert className="h-5 w-5" />
-        )}
-        <span className="text-sm">
-          {isVerified ? 'Measurements Match' : 'Measurement mismatch detected'}
-        </span>
-      </div>
+      {showStatusBanner && (
+        <div
+          className={`mb-4 flex items-center gap-2 rounded-lg p-3 transition-colors ${
+            isVerified
+              ? isDarkMode
+                ? 'bg-emerald-500/10 text-emerald-300'
+                : 'bg-emerald-50 text-emerald-600'
+              : isDarkMode
+                ? 'bg-red-500/10 text-red-300'
+                : 'bg-red-50 text-red-600'
+          }`}
+        >
+          {isVerified ? (
+            <LuCheck className="h-5 w-5" />
+          ) : (
+            <LuTriangleAlert className="h-5 w-5" />
+          )}
+          <span className="text-sm">
+            {isVerified ? 'Measurements Match' : 'Measurement mismatch detected'}
+          </span>
+        </div>
+      )}
 
       <div className="space-y-4">
         <div>
